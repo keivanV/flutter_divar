@@ -182,10 +182,6 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
     final formattedTotalPrice = ad.totalPrice != null && ad.totalPrice! > 0
         ? '${numberFormatter.format(ad.totalPrice!)} تومان'
         : null;
-    final formattedPricePerMeter =
-        ad.pricePerMeter != null && ad.pricePerMeter! > 0
-            ? '${numberFormatter.format(ad.pricePerMeter!)} تومان'
-            : null;
 
     final adCategory = ad.adType == 'REAL_ESTATE'
         ? 'املاک'
@@ -646,19 +642,6 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                               value: formattedTotalPrice,
                             ),
                           ),
-                          Divider(color: Colors.grey[300], thickness: 1),
-                        ],
-                        if (formattedPricePerMeter != null) ...[
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _buildDetailItem(
-                              context,
-                              icon: Icons.monetization_on,
-                              label: 'قیمت هر متر',
-                              value: formattedPricePerMeter,
-                            ),
-                          ),
-                          Divider(color: Colors.grey[300], thickness: 1),
                         ],
                         if (ad.realEstateType == 'RENT') ...[
                           if (formattedDeposit != null) ...[
@@ -807,7 +790,6 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                                 : 'نامشخص',
                           ),
                         ),
-                        Divider(color: Colors.grey[300], thickness: 1),
                       ],
                     ),
                   ] else ...[

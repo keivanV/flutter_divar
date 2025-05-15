@@ -38,13 +38,14 @@ With a clean, modern UI and robust backend, it turns everyday classifieds into a
 
 ## 📸 Screenshots
 
-Here are a few glimpses of the app in action:
+<div align="center">
+  <h4>🏠 Home Screen</h4>
+  <img src="project_images/screen1.png" alt="Home Screen" width="300"/>
 
-### 🏠 Home Screen
-![Home Screen](project_images/screen1.png)
+  <h4>📄 Ad Details</h4>
+  <img src="project_images/screen2.png" alt="Ad Details" width="300"/>
 
-### 📄 Ad Details
-![Ad Details](project_images/screen2.png)
+  <h4>⭐ Bookmarked Ads</h4>
+  <img src="project_images/screen3.png" alt="Bookmarks" width="300"/>
+</div>
 
-### ⭐ Bookmarked Ads
-![Bookmarks](project_images/screen3.png)

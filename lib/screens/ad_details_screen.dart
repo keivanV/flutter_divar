@@ -218,632 +218,614 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                 ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16.0),
           children: [
-            Container(
-              height: 250,
-              decoration: BoxDecoration(
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Stack(
-                children: [
-                  ad.imageUrls.isNotEmpty
-                      ? PageView.builder(
-                          controller: _pageController,
-                          itemCount: ad.imageUrls.length,
-                          onPageChanged: (index) {
-                            setState(() {
-                              _currentImageIndex = index;
-                            });
-                          },
-                          itemBuilder: (context, index) => Image.network(
-                            ad.imageUrls[index],
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Center(
-                              child: Icon(
-                                Icons.broken_image,
-                                size: 100,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ),
-                        )
-                      : Container(
-                          color: Colors.grey[200],
-                          child: const Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.image_not_supported,
+            SizedBox(
+              height: MediaQuery.of(context).size.height *
+                  0.3, // حداکثر 30% ارتفاع صفحه
+              child: Container(
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    ad.imageUrls.isNotEmpty
+                        ? PageView.builder(
+                            controller: _pageController,
+                            itemCount: ad.imageUrls.length,
+                            onPageChanged: (index) {
+                              setState(() {
+                                _currentImageIndex = index;
+                              });
+                            },
+                            itemBuilder: (context, index) => Image.network(
+                              ad.imageUrls[index],
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Center(
+                                child: Icon(
+                                  Icons.broken_image,
                                   size: 100,
                                   color: Colors.grey,
                                 ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'بدون تصویر',
-                                  style: TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                  if (ad.imageUrls.isNotEmpty)
-                    Positioned(
-                      bottom: 16,
-                      left: 16,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.6),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '${ad.imageUrls.length} عکس',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (ad.imageUrls.isNotEmpty)
-                    Positioned(
-                      bottom: 16,
-                      left: 0,
-                      right: 0,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(
-                          ad.imageUrls.length,
-                          (index) => Container(
-                            width: 8,
-                            height: 8,
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _currentImageIndex == index
-                                  ? Colors.red
-                                  : Colors.grey.withOpacity(0.5),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (ad.imageUrls.length > 1) ...[
-                    Positioned(
-                      left: 16,
-                      top: 0,
-                      bottom: 0,
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.arrow_forward,
-                          color: Colors.white,
-                          size: 32,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black54,
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                        onPressed: _currentImageIndex < ad.imageUrls.length - 1
-                            ? () => _nextImage(ad.imageUrls.length)
-                            : null,
-                      ),
-                    ),
-                    Positioned(
-                      right: 16,
-                      top: 0,
-                      bottom: 0,
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.arrow_back,
-                          color: Colors.white,
-                          size: 32,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black54,
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                        onPressed: _currentImageIndex > 0
-                            ? () => _previousImage()
-                            : null,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    adCategory,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.red,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 18,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    ad.title,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'تاریخ ثبت: ${DateFormat('yyyy-MM-dd').format(ad.createdAt)}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'موقعیت: ${ad.provinceName ?? 'نامشخص'}، ${ad.cityName ?? 'نامشخص'}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
-                          fontSize: 14,
-                        ),
-                  ),
-                  const SizedBox(height: 16),
-                  Divider(color: Colors.grey[300], thickness: 1),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _commentController,
-                          decoration: InputDecoration(
-                            hintText: 'کامنت مفید به این آگهی اضافه کنید',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.send, color: Colors.red),
-                        onPressed: () {
-                          if (_commentController.text.trim().isNotEmpty) {
-                            setState(() {
-                              _mockComments.add(_commentController.text.trim());
-                              _commentController.clear();
-                            });
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('کامنت ثبت شد'),
-                                duration: Duration(seconds: 2),
                               ),
-                            );
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Divider(color: Colors.grey[300], thickness: 1),
-                  InkWell(
-                    onTap: () {
-                      setState(() {
-                        _isCommentsExpanded = !_isCommentsExpanded;
-                      });
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'نمایش کامنت‌ها برای این آگهی',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                ),
-                          ),
-                          Icon(
-                            _isCommentsExpanded
-                                ? Icons.keyboard_arrow_up
-                                : Icons.keyboard_arrow_down,
-                            color: Colors.red,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (_isCommentsExpanded) ...[
-                    const SizedBox(height: 8),
-                    _mockComments.isEmpty
-                        ? Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            child: Text(
-                              'هنوز کامنتی ثبت نشده است',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(
-                                    color: Colors.grey[600],
-                                    fontSize: 14,
-                                  ),
                             ),
                           )
-                        : Column(
-                            children: _mockComments
-                                .asMap()
-                                .entries
-                                .map(
-                                  (entry) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: Row(
+                        : Container(
+                            color: Colors.grey[200],
+                            child: const Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.image_not_supported,
+                                    size: 100,
+                                    color: Colors.grey,
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'بدون تصویر',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                    if (ad.imageUrls.isNotEmpty)
+                      Positioned(
+                        bottom: 16,
+                        left: 16,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${ad.imageUrls.length} عکس',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (ad.imageUrls.isNotEmpty)
+                      Positioned(
+                        bottom: 16,
+                        left: 0,
+                        right: 0,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            ad.imageUrls.length,
+                            (index) => Container(
+                              width: 8,
+                              height: 8,
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _currentImageIndex == index
+                                    ? Colors.red
+                                    : Colors.grey.withOpacity(0.5),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (ad.imageUrls.length > 1) ...[
+                      Positioned(
+                        left: 16,
+                        top: 0,
+                        bottom: 0,
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.arrow_forward,
+                            color: Colors.white,
+                            size: 32,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black54,
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                          onPressed:
+                              _currentImageIndex < ad.imageUrls.length - 1
+                                  ? () => _nextImage(ad.imageUrls.length)
+                                  : null,
+                        ),
+                      ),
+                      Positioned(
+                        right: 16,
+                        top: 0,
+                        bottom: 0,
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.white,
+                            size: 32,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black54,
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                          onPressed: _currentImageIndex > 0
+                              ? () => _previousImage()
+                              : null,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              adCategory,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.red,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 18,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              ad.title,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'تاریخ ثبت: ${DateFormat('yyyy-MM-dd').format(ad.createdAt)}',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'موقعیت: ${ad.provinceName ?? 'نامشخص'}، ${ad.cityName ?? 'نامشخص'}',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            Divider(color: Colors.grey[300], thickness: 1),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _commentController,
+                    decoration: InputDecoration(
+                      hintText: 'کامنت مفید به این آگهی اضافه کنید',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.send, color: Colors.red),
+                  onPressed: () {
+                    if (_commentController.text.trim().isNotEmpty) {
+                      setState(() {
+                        _mockComments.add(_commentController.text.trim());
+                        _commentController.clear();
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('کامنت ثبت شد'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Divider(color: Colors.grey[300], thickness: 1),
+            InkWell(
+              onTap: () {
+                setState(() {
+                  _isCommentsExpanded = !_isCommentsExpanded;
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'نمایش کامنت‌ها برای این آگهی',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                    ),
+                    Icon(
+                      _isCommentsExpanded
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      color: Colors.red,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_isCommentsExpanded) ...[
+              const SizedBox(height: 8),
+              _mockComments.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Text(
+                        'هنوز کامنتی ثبت نشده است',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey[600],
+                              fontSize: 14,
+                            ),
+                      ),
+                    )
+                  : Column(
+                      children: _mockComments
+                          .asMap()
+                          .entries
+                          .map(
+                            (entry) => Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  CircleAvatar(
+                                    radius: 20,
+                                    backgroundColor: Colors.grey[200],
+                                    child: const Icon(
+                                      Icons.person,
+                                      color: Colors.grey,
+                                      size: 24,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        CircleAvatar(
-                                          radius: 20,
-                                          backgroundColor: Colors.grey[200],
-                                          child: const Icon(
-                                            Icons.person,
-                                            color: Colors.grey,
-                                            size: 24,
-                                          ),
+                                        Text(
+                                          'کاربر ${entry.key + 1}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 14,
+                                              ),
                                         ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'کاربر ${entry.key + 1}',
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodyMedium
-                                                    ?.copyWith(
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      fontSize: 14,
-                                                    ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                entry.value,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodyMedium
-                                                    ?.copyWith(fontSize: 14),
-                                              ),
-                                            ],
-                                          ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          entry.value,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(fontSize: 14),
                                         ),
                                       ],
                                     ),
                                   ),
-                                )
-                                .toList(),
-                          ),
-                  ],
-                  const SizedBox(height: 16),
-                  Divider(color: Colors.grey[300], thickness: 1),
-                  if (ad.adType == 'REAL_ESTATE') ...[
-                    Text(
-                      'جزئیات ملک',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: _buildFeatureCard(
-                            context,
-                            icon: Icons.local_parking,
-                            label: 'پارکینگ',
-                            isAvailable: ad.hasParking == true,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildFeatureCard(
-                            context,
-                            icon: Icons.store,
-                            label: 'انباری',
-                            isAvailable: ad.hasStorage == true,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildFeatureCard(
-                            context,
-                            icon: Icons.balcony,
-                            label: 'بالکن',
-                            isAvailable: ad.hasBalcony == true,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (ad.area != null) ...[
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _buildDetailItem(
-                              context,
-                              icon: Icons.square_foot,
-                              label: 'مساحت',
-                              value: '${ad.area} متر مربع',
-                            ),
-                          ),
-                          Divider(color: Colors.grey[300], thickness: 1),
-                        ],
-                        if (ad.rooms != null) ...[
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _buildDetailItem(
-                              context,
-                              icon: Icons.bed,
-                              label: 'اتاق',
-                              value: ad.rooms.toString(),
-                            ),
-                          ),
-                          Divider(color: Colors.grey[300], thickness: 1),
-                        ],
-                        if (ad.floor != null) ...[
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _buildDetailItem(
-                              context,
-                              icon: Icons.stairs,
-                              label: 'طبقه',
-                              value: ad.floor.toString(),
-                            ),
-                          ),
-                          Divider(color: Colors.grey[300], thickness: 1),
-                        ],
-                        if (formattedTotalPrice != null) ...[
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _buildDetailItem(
-                              context,
-                              icon: Icons.account_balance_wallet,
-                              label: 'قیمت کل',
-                              value: formattedTotalPrice,
-                            ),
-                          ),
-                        ],
-                        if (ad.realEstateType == 'RENT') ...[
-                          if (formattedDeposit != null) ...[
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _buildDetailItem(
-                                context,
-                                icon: Icons.payment,
-                                label: 'ودیعه',
-                                value: formattedDeposit,
+                                ],
                               ),
                             ),
-                            Divider(color: Colors.grey[300], thickness: 1),
-                          ],
-                          if (formattedMonthlyRent != null) ...[
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _buildDetailItem(
-                                context,
-                                icon: Icons.calendar_month,
-                                label: 'اجاره ماهانه',
-                                value: formattedMonthlyRent,
-                              ),
-                            ),
-                            Divider(color: Colors.grey[300], thickness: 1),
-                          ],
-                        ],
-                      ],
+                          )
+                          .toList(),
                     ),
-                  ] else if (ad.adType == 'VEHICLE') ...[
-                    Text(
-                      'جزئیات خودرو',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
+            ],
+            const SizedBox(height: 16),
+            Divider(color: Colors.grey[300], thickness: 1),
+            if (ad.adType == 'REAL_ESTATE') ...[
+              Text(
+                'جزئیات ملک',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
                     ),
-                    const SizedBox(height: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildDetailItem(
-                            context,
-                            icon: Icons.directions_car,
-                            label: 'برند',
-                            value: ad.brand ?? 'نامشخص',
-                          ),
-                        ),
-                        Divider(color: Colors.grey[300], thickness: 1),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildDetailItem(
-                            context,
-                            icon: Icons.model_training,
-                            label: 'مدل',
-                            value: ad.model ?? 'نامشخص',
-                          ),
-                        ),
-                        Divider(color: Colors.grey[300], thickness: 1),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildDetailItem(
-                            context,
-                            icon: Icons.speed,
-                            label: 'کارکرد',
-                            value: ad.mileage != null
-                                ? '${numberFormatter.format(ad.mileage!)} کیلومتر'
-                                : 'نامشخص',
-                          ),
-                        ),
-                        Divider(color: Colors.grey[300], thickness: 1),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildDetailItem(
-                            context,
-                            icon: Icons.color_lens,
-                            label: 'رنگ',
-                            value: ad.color ?? 'نامشخص',
-                          ),
-                        ),
-                        Divider(color: Colors.grey[300], thickness: 1),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildDetailItem(
-                            context,
-                            icon: Icons.settings,
-                            label: 'نوع گیربکس',
-                            value: ad.gearbox != null
-                                ? (ad.gearbox == 'MANUAL' ? 'دستی' : 'اتوماتیک')
-                                : 'نامشخص',
-                          ),
-                        ),
-                        Divider(color: Colors.grey[300], thickness: 1),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildDetailItem(
-                            context,
-                            icon: Icons.attach_money,
-                            label: 'قیمت',
-                            value: formattedPrice,
-                          ),
-                        ),
-                        Divider(color: Colors.grey[300], thickness: 1),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildDetailItem(
-                            context,
-                            icon: Icons.engineering,
-                            label: 'وضعیت موتور',
-                            value: ad.engineStatus != null
-                                ? (ad.engineStatus == 'HEALTHY'
-                                    ? 'سالم'
-                                    : 'نیاز به تعمیر')
-                                : 'نامشخص',
-                          ),
-                        ),
-                        Divider(color: Colors.grey[300], thickness: 1),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildDetailItem(
-                            context,
-                            icon: Icons.car_repair,
-                            label: 'وضعیت شاسی',
-                            value: ad.chassisStatus != null
-                                ? (ad.chassisStatus == 'HEALTHY'
-                                    ? 'سالم'
-                                    : 'تصادفی')
-                                : 'نامشخص',
-                          ),
-                        ),
-                        Divider(color: Colors.grey[300], thickness: 1),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildDetailItem(
-                            context,
-                            icon: Icons.car_crash,
-                            label: 'وضعیت بدنه',
-                            value: ad.bodyStatus != null
-                                ? (ad.bodyStatus == 'HEALTHY'
-                                    ? 'سالم'
-                                    : ad.bodyStatus == 'MINOR_SCRATCH'
-                                        ? 'خط و خش جزیی'
-                                        : 'تصادفی')
-                                : 'نامشخص',
-                          ),
-                        ),
-                      ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: _buildFeatureCard(
+                      context,
+                      icon: Icons.local_parking,
+                      label: 'پارکینگ',
+                      isAvailable: ad.hasParking == true,
                     ),
-                  ] else ...[
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _buildDetailItem(
-                        context,
-                        icon: Icons.attach_money,
-                        label: 'قیمت',
-                        value: formattedPrice,
-                      ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildFeatureCard(
+                      context,
+                      icon: Icons.store,
+                      label: 'انباری',
+                      isAvailable: ad.hasStorage == true,
                     ),
-                    Divider(color: Colors.grey[300], thickness: 1),
-                  ],
-                  const SizedBox(height: 16),
-                  Divider(color: Colors.grey[300], thickness: 1),
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'توضیحات',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            ad.description,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  fontSize: 14,
-                                  height: 1.5,
-                                ),
-                          ),
-                        ],
-                      ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildFeatureCard(
+                      context,
+                      icon: Icons.balcony,
+                      label: 'بالکن',
+                      isAvailable: ad.hasBalcony == true,
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (ad.area != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildDetailItem(
+                        context,
+                        icon: Icons.square_foot,
+                        label: 'مساحت',
+                        value: '${ad.area} متر مربع',
+                      ),
+                    ),
+                    Divider(color: Colors.grey[300], thickness: 1),
+                  ],
+                  if (ad.rooms != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildDetailItem(
+                        context,
+                        icon: Icons.bed,
+                        label: 'اتاق',
+                        value: ad.rooms.toString(),
+                      ),
+                    ),
+                    Divider(color: Colors.grey[300], thickness: 1),
+                  ],
+                  if (ad.floor != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildDetailItem(
+                        context,
+                        icon: Icons.stairs,
+                        label: 'طبقه',
+                        value: ad.floor.toString(),
+                      ),
+                    ),
+                    Divider(color: Colors.grey[300], thickness: 1),
+                  ],
+                  if (formattedTotalPrice != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildDetailItem(
+                        context,
+                        icon: Icons.account_balance_wallet,
+                        label: 'قیمت کل',
+                        value: formattedTotalPrice,
+                      ),
+                    ),
+                  ],
+                  if (ad.realEstateType == 'RENT') ...[
+                    if (formattedDeposit != null) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildDetailItem(
+                          context,
+                          icon: Icons.payment,
+                          label: 'ودیعه',
+                          value: formattedDeposit,
+                        ),
+                      ),
+                      Divider(color: Colors.grey[300], thickness: 1),
+                    ],
+                    if (formattedMonthlyRent != null) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildDetailItem(
+                          context,
+                          icon: Icons.calendar_month,
+                          label: 'اجاره ماهانه',
+                          value: formattedMonthlyRent,
+                        ),
+                      ),
+                      Divider(color: Colors.grey[300], thickness: 1),
+                    ],
+                  ],
+                ],
+              ),
+            ] else if (ad.adType == 'VEHICLE') ...[
+              Text(
+                'جزئیات خودرو',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildDetailItem(
+                      context,
+                      icon: Icons.directions_car,
+                      label: 'برند',
+                      value: ad.brand ?? 'نامشخص',
+                    ),
+                  ),
+                  Divider(color: Colors.grey[300], thickness: 1),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildDetailItem(
+                      context,
+                      icon: Icons.model_training,
+                      label: 'مدل',
+                      value: ad.model ?? 'نامشخص',
+                    ),
+                  ),
+                  Divider(color: Colors.grey[300], thickness: 1),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildDetailItem(
+                      context,
+                      icon: Icons.speed,
+                      label: 'کارکرد',
+                      value: ad.mileage != null
+                          ? '${numberFormatter.format(ad.mileage!)} کیلومتر'
+                          : 'نامشخص',
+                    ),
+                  ),
+                  Divider(color: Colors.grey[300], thickness: 1),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildDetailItem(
+                      context,
+                      icon: Icons.color_lens,
+                      label: 'رنگ',
+                      value: ad.color ?? 'نامشخص',
+                    ),
+                  ),
+                  Divider(color: Colors.grey[300], thickness: 1),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildDetailItem(
+                      context,
+                      icon: Icons.settings,
+                      label: 'نوع گیربکس',
+                      value: ad.gearbox != null
+                          ? (ad.gearbox == 'MANUAL' ? 'دستی' : 'اتوماتیک')
+                          : 'نامشخص',
+                    ),
+                  ),
+                  Divider(color: Colors.grey[300], thickness: 1),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildDetailItem(
+                      context,
+                      icon: Icons.attach_money,
+                      label: 'قیمت',
+                      value: formattedPrice,
+                    ),
+                  ),
+                  Divider(color: Colors.grey[300], thickness: 1),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildDetailItem(
+                      context,
+                      icon: Icons.engineering,
+                      label: 'وضعیت موتور',
+                      value: ad.engineStatus != null
+                          ? (ad.engineStatus == 'HEALTHY'
+                              ? 'سالم'
+                              : 'نیاز به تعمیر')
+                          : 'نامشخص',
+                    ),
+                  ),
+                  Divider(color: Colors.grey[300], thickness: 1),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildDetailItem(
+                      context,
+                      icon: Icons.car_repair,
+                      label: 'وضعیت شاسی',
+                      value: ad.chassisStatus != null
+                          ? (ad.chassisStatus == 'HEALTHY' ? 'سالم' : 'تصادفی')
+                          : 'نامشخص',
+                    ),
+                  ),
+                  Divider(color: Colors.grey[300], thickness: 1),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildDetailItem(
+                      context,
+                      icon: Icons.car_crash,
+                      label: 'وضعیت بدنه',
+                      value: ad.bodyStatus != null
+                          ? (ad.bodyStatus == 'HEALTHY'
+                              ? 'سالم'
+                              : ad.bodyStatus == 'MINOR_SCRATCH'
+                                  ? 'خط و خش جزیی'
+                                  : 'تصادفی')
+                          : 'نامشخص',
+                    ),
+                  ),
+                ],
+              ),
+            ] else ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildDetailItem(
+                  context,
+                  icon: Icons.attach_money,
+                  label: 'قیمت',
+                  value: formattedPrice,
+                ),
+              ),
+              Divider(color: Colors.grey[300], thickness: 1),
+            ],
+            const SizedBox(height: 16),
+            Divider(color: Colors.grey[300], thickness: 1),
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'توضیحات',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      ad.description,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontSize: 14,
+                            height: 1.5,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
             ),
+            const SizedBox(height: 80), // فضای اضافی برای اسکرول
           ],
         ),
       ),

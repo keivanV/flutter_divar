@@ -76,7 +76,7 @@ class HomeScreen extends StatelessWidget {
                                   itemBuilder: (context, index) {
                                     final ad = adProvider.ads[index];
                                     print(
-                                        'Rendering ad: ${ad.title} (ID: ${ad.id})');
+                                        'Rendering ad: ${ad.title} (ID: ${ad.adId})');
                                     return AdCard(ad: ad);
                                   },
                                 ),

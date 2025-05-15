@@ -11,14 +11,10 @@ class AdCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final numberFormatter = NumberFormat('#,###', 'fa_IR');
 
-    // Determine price to display
-    final price = ad.adType == 'VEHICLE'
-        ? (ad.basePrice != null && ad.basePrice! > 0
-            ? '${numberFormatter.format(ad.basePrice!)} تومان'
-            : 'قیمت توافقی')
-        : (ad.price != null && ad.price! > 0
-            ? '${numberFormatter.format(ad.price!)} تومان'
-            : 'قیمت توافقی');
+    // Use ad.price for all ad types
+    final price = ad.price != null && ad.price! > 0
+        ? '${numberFormatter.format(ad.price!)} تومان'
+        : 'قیمت توافقی';
 
     // Determine subtitle for VEHICLE or REAL_ESTATE
     final subtitle = ad.adType == 'VEHICLE'

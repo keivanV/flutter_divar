@@ -1,3 +1,4 @@
+
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/ad.dart';
@@ -5,6 +6,7 @@ import '../services/api_service.dart';
 
 class AdProvider with ChangeNotifier {
   List<Ad> _ads = [];
+  List<Ad> _userAds = [];
   bool _isLoading = false;
   String? _sortBy;
   String? _errorMessage;
@@ -14,6 +16,7 @@ class AdProvider with ChangeNotifier {
   int? _cityId;
 
   List<Ad> get ads => _ads;
+  List<Ad> get userAds => _userAds;
   bool get isLoading => _isLoading;
   String? get sortBy => _sortBy;
   String? get errorMessage => _errorMessage;
@@ -21,9 +24,16 @@ class AdProvider with ChangeNotifier {
   String? get realEstateType => _realEstateType;
 
   final ApiService _apiService = ApiService();
+  static const List<String> _validSortByValues = [
+    'newest',
+    'oldest',
+    'price_asc',
+    'price_desc'
+  ];
 
   AdProvider() {
-    fetchAds(); // Fetch ads on initialization
+    _sortBy = null;
+    fetchAds();
   }
 
   Future<void> postAd({
@@ -74,6 +84,11 @@ class AdProvider with ChangeNotifier {
           throw Exception('قیمت پایه خودرو الزامی و باید عدد معتبر باشد');
         }
         effectivePrice = basePrice;
+      } else if (adType == 'REAL_ESTATE') {
+        if (totalPrice == null || int.tryParse(totalPrice) == null) {
+          throw Exception('قیمت کل املاک الزامی و باید عدد معتبر باشد');
+        }
+        effectivePrice = totalPrice;
       } else {
         effectivePrice = price ?? '0';
       }
@@ -126,10 +141,14 @@ class AdProvider with ChangeNotifier {
           if (hasParking != null) 'has_parking': hasParking,
           if (hasStorage != null) 'has_storage': hasStorage,
           if (hasBalcony != null) 'has_balcony': hasBalcony,
-          if (realEstateType == 'RENT' && deposit != null)
+          if (realEstateType == 'RENT' && deposit != null && deposit.isNotEmpty)
             'deposit': int.tryParse(deposit) ?? 0,
-          if (realEstateType == 'RENT' && monthlyRent != null)
+          if (realEstateType == 'RENT' &&
+              monthlyRent != null &&
+              monthlyRent.isNotEmpty)
             'monthly_rent': int.tryParse(monthlyRent) ?? 0,
+          if (realEstateType == 'SALE') 'deposit': null,
+          if (realEstateType == 'SALE') 'monthly_rent': null,
           if (floor != null) 'floor': int.tryParse(floor) ?? 0,
         },
         if (adType == 'VEHICLE') ...{
@@ -164,6 +183,12 @@ class AdProvider with ChangeNotifier {
         cityId: _cityId,
         sortBy: _sortBy,
       );
+      try {
+        await fetchUserAds(cleanPhoneNumber); // Refresh user ads
+      } catch (e) {
+        print('Failed to refresh user ads after posting: $e');
+        // Continue without failing the post
+      }
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       print('Error posting ad: $_errorMessage');
@@ -183,15 +208,20 @@ class AdProvider with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
+    // Validate sortBy
+    final validatedSortBy =
+        sortBy != null && _validSortByValues.contains(sortBy) ? sortBy : null;
+
     try {
+      print('Fetching ads with sortBy: $validatedSortBy');
       final ads = await _apiService.fetchAds(
         adType: adType ?? _adType,
         provinceId: provinceId ?? _provinceId,
         cityId: cityId ?? _cityId,
-        sortBy: sortBy ?? _sortBy,
+        sortBy: validatedSortBy,
       );
       print('Fetched ${ads.length} ads with adType: ${adType ?? _adType}, '
-          'provinceId: ${provinceId ?? _provinceId}, cityId: ${cityId ?? _cityId}, sortBy: ${sortBy ?? _sortBy}');
+          'provinceId: ${provinceId ?? _provinceId}, cityId: ${cityId ?? _cityId}, sortBy: $validatedSortBy');
       for (var ad in ads) {
         print('Parsed ad JSON: ${ad.toJson()}');
       }
@@ -199,10 +229,79 @@ class AdProvider with ChangeNotifier {
       _adType = adType ?? _adType;
       _provinceId = provinceId ?? _provinceId;
       _cityId = cityId ?? _cityId;
-      _sortBy = sortBy ?? _sortBy;
+      _sortBy = validatedSortBy;
     } catch (e, stackTrace) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       print('Error fetching ads: $_errorMessage');
+      print('Stack trace: $stackTrace');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchUserAds(String phoneNumber) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      print('Fetching user ads for phone: $phoneNumber');
+      final ads = await _apiService.fetchUserAds(phoneNumber);
+      print('Fetched ${ads.length} user ads for phone: $phoneNumber');
+      _userAds = ads;
+    } catch (e, stackTrace) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      print('Error fetching user ads: $_errorMessage');
+      print('Stack trace: $stackTrace');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateAd({
+    required int adId,
+    required String title,
+    required String description,
+    int? price,
+    required String phoneNumber,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _apiService.updateAd(
+        adId: adId,
+        title: title,
+        description: description,
+        price: price,
+      );
+      print('Ad updated: $adId');
+      await fetchUserAds(phoneNumber); // Use provided phoneNumber
+    } catch (e, stackTrace) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      print('Error updating ad: $_errorMessage');
+      print('Stack trace: $stackTrace');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteAd(int adId, String phoneNumber) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _apiService.deleteAd(adId);
+      print('Ad deleted: $adId');
+      await fetchUserAds(phoneNumber); // Use provided phoneNumber
+    } catch (e, stackTrace) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      print('Error deleting ad: $_errorMessage');
       print('Stack trace: $stackTrace');
     } finally {
       _isLoading = false;
@@ -218,6 +317,12 @@ class AdProvider with ChangeNotifier {
     String? sortBy,
   }) {
     bool changed = false;
+
+    // Validate sortBy
+    final validatedSortBy =
+        sortBy != null && _validSortByValues.contains(sortBy)
+            ? sortBy
+            : _sortBy;
 
     if (_adType != adType) {
       _adType = adType;
@@ -235,8 +340,8 @@ class AdProvider with ChangeNotifier {
       _cityId = cityId;
       changed = true;
     }
-    if (_sortBy != sortBy) {
-      _sortBy = sortBy;
+    if (_sortBy != validatedSortBy) {
+      _sortBy = validatedSortBy;
       changed = true;
     }
 

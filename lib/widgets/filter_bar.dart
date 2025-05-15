@@ -1,30 +1,57 @@
+
 import 'package:flutter/material.dart';
-import '../providers/ad_provider.dart';
 import 'package:provider/provider.dart';
+import '../providers/ad_provider.dart';
 
 class FilterBar extends StatelessWidget {
   const FilterBar({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final adProvider = Provider.of<AdProvider>(context);
-
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: DropdownButton<String>(
-        value: adProvider.sortBy,
-        hint: const Text('مرتب‌سازی'),
-        isExpanded: true,
-        items: const [
-          DropdownMenuItem(value: 'newest', child: Text('جدیدترین')),
-          DropdownMenuItem(value: 'oldest', child: Text('قدیمی‌ترین')),
-          DropdownMenuItem(value: 'cheapest', child: Text('ارزان‌ترین')),
-          DropdownMenuItem(value: 'most_expensive', child: Text('گران‌ترین')),
-        ],
-        onChanged: (value) {
-          adProvider.fetchAds(sortBy: value);
-        },
-      ),
+    return Consumer<AdProvider>(
+      builder: (context, adProvider, child) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: Colors.grey[100],
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              DropdownButton<String>(
+                hint: const Text('مرتب‌سازی'),
+                value: adProvider.sortBy,
+                items: const [
+                  DropdownMenuItem(
+                    value: 'newest',
+                    child: Text('جدیدترین'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'oldest',
+                    child: Text('قدیمی‌ترین'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'price_asc',
+                    child: Text('ارزان‌ترین'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'price_desc',
+                    child: Text('گران‌ترین'),
+                  ),
+                ],
+                onChanged: (value) {
+                  print('Selected sortBy: $value');
+                  adProvider.setFilters(sortBy: value);
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.filter_list),
+                onPressed: () {
+                  adProvider.clearFilters();
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

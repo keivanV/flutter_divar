@@ -42,6 +42,60 @@ class ApiService {
     }
   }
 
+  Future<void> updateAd({
+    required int adId,
+    required String title,
+    required String description,
+    int? price,
+  }) async {
+    final uri = Uri.parse('$apiBaseUrl/ads/$adId');
+    final response = await http.put(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'title': title,
+        'description': description,
+        'price': price,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update ad: ${response.body}');
+    }
+  }
+
+  Future<List<Ad>> fetchUserAds(String phoneNumber) async {
+    final uri = Uri.parse('$apiBaseUrl/users/$phoneNumber/ads');
+    print('Fetching user ads from: $uri for phone: $phoneNumber');
+    try {
+      final response = await http.get(uri);
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonList = jsonDecode(response.body);
+        print('Fetched ${jsonList.length} user ads for phone: $phoneNumber');
+        return jsonList.map((json) => Ad.fromJson(json)).toList();
+      } else {
+        print(
+            'Failed to fetch user ads: ${response.statusCode} - ${response.body}');
+        throw Exception(
+            'Failed to load user ads: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      print('Error fetching user ads for phone: $phoneNumber - $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteAd(int adId) async {
+    final uri = Uri.parse('$apiBaseUrl/ads/$adId');
+    final response = await http.delete(uri);
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete ad: ${response.body}');
+    }
+  }
+
   Future<Map<String, dynamic>> fetchUserProfile(String phoneNumber) async {
     try {
       final uri = Uri.parse('$apiBaseUrl/users/$phoneNumber');

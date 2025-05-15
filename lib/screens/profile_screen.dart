@@ -1,3 +1,5 @@
+
+import 'package:divar_app/screens/myAds_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
@@ -27,16 +29,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadUserProfile() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final phoneNumber = authProvider.phoneNumber;
+    print('Loading profile for phoneNumber: $phoneNumber');
     if (phoneNumber != null && phoneNumber.isNotEmpty) {
       try {
         final profile = await _apiService.fetchUserProfile(phoneNumber);
         setState(() {
           _userProfile = profile;
         });
+        print('Loaded profile: $_userProfile');
       } catch (e) {
         print('Error loading profile: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطا در بارگذاری پروفایل: $e')),
+        );
       }
     } else {
+      print('No phoneNumber, redirecting to auth');
       Navigator.pushNamedAndRemoveUntil(context, '/auth', (route) => false);
     }
   }
@@ -46,12 +54,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         final phoneNumber = authProvider.phoneNumber;
+        print('Building ProfileScreen with phoneNumber: $phoneNumber');
+
+        // Show loading or redirect if not logged in
         if (phoneNumber == null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            Navigator.pushNamedAndRemoveUntil(
-                context, '/auth', (route) => false);
-          });
-          return const SizedBox.shrink();
+          return Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('لطفاً وارد حساب کاربری خود شوید'),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushNamedAndRemoveUntil(
+                          context, '/auth', (route) => false);
+                    },
+                    child: const Text('ورود'),
+                  ),
+                ],
+              ),
+            ),
+          );
         }
 
         return Scaffold(
@@ -82,14 +105,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildSectionCard([
                     _buildProfileItem(
                         context, 'آگهی‌های من', FontAwesomeIcons.list, () {
-                      // TODO: Navigate to My Ads
+                      final navPhoneNumber = authProvider.phoneNumber;
+                      if (navPhoneNumber != null) {
+                        print(
+                            'Navigating to MyAdsScreen with phoneNumber: $navPhoneNumber');
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                MyAdsScreen(phoneNumber: navPhoneNumber),
+                          ),
+                        );
+                      } else {
+                        print('Cannot navigate to MyAdsScreen: phoneNumber is null');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('لطفاً ابتدا وارد شوید')),
+                        );
+                        Navigator.pushNamedAndRemoveUntil(
+                            context, '/auth', (route) => false);
+                      }
                     }),
                     _buildProfileItem(
                         context, 'نشان‌ها', FontAwesomeIcons.bookmark, () {
                       Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const BookmarksScreen()));
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const BookmarksScreen(),
+                        ),
+                      );
                     }),
                     _buildProfileItem(
                         context, 'بازدیدهای اخیر', FontAwesomeIcons.clock, () {
@@ -165,6 +209,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             TextButton.icon(
               onPressed: () async {
+                print('Logging out phoneNumber: $phoneNumber');
                 await authProvider.logout();
                 Navigator.pushNamedAndRemoveUntil(
                     context, '/auth', (route) => false);
@@ -172,7 +217,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               icon: const Icon(Icons.logout, color: Colors.red),
               label:
                   const Text('خروج', style: TextStyle(color: Colors.redAccent)),
-            )
+            ),
           ],
         ),
       ),

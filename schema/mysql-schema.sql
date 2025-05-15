@@ -1,181 +1,260 @@
--- تنظیم کدگذاری کلاینت برای پشتیبانی از زبان فارسی
-SET NAMES utf8mb4;
-SET CHARACTER SET utf8mb4;
-SET COLLATION_CONNECTION = 'utf8mb4_persian_ci';
+-- MySQL dump 10.13  Distrib 8.0.42, for Win64 (x86_64)
+--
+-- Host: localhost    Database: divar_app
+-- ------------------------------------------------------
+-- Server version	8.0.42
 
--- حذف پایگاه داده قبلی (در صورت وجود) و ایجاد پایگاه داده جدید
-DROP DATABASE IF EXISTS divar_app;
-CREATE DATABASE divar_app
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_persian_ci;
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!50503 SET NAMES utf8mb4 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
-USE divar_app;
+--
+-- Table structure for table `active_devices`
+--
 
--- حذف جداول قبلی به ترتیب معکوس وابستگی‌ها
-DROP TABLE IF EXISTS comments;
-DROP TABLE IF EXISTS recent_visits;
-DROP TABLE IF EXISTS bookmarks;
-DROP TABLE IF EXISTS vehicle_ads;
-DROP TABLE IF EXISTS real_estate_ads;
-DROP TABLE IF EXISTS ad_images;
-DROP TABLE IF EXISTS advertisements;
-DROP TABLE IF EXISTS active_devices;
-DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS cities;
-DROP TABLE IF EXISTS provinces;
+DROP TABLE IF EXISTS `active_devices`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `active_devices` (
+  `device_id` int NOT NULL AUTO_INCREMENT,
+  `user_phone_number` varchar(11) COLLATE utf8mb4_persian_ci NOT NULL,
+  `device_token` varchar(255) COLLATE utf8mb4_persian_ci NOT NULL,
+  `last_active` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`device_id`),
+  KEY `user_phone_number` (`user_phone_number`),
+  CONSTRAINT `active_devices_ibfk_1` FOREIGN KEY (`user_phone_number`) REFERENCES `users` (`phone_number`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- جدول استان‌ها
-CREATE TABLE provinces (
-    province_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(50) NOT NULL UNIQUE
-) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_persian_ci;
+--
+-- Table structure for table `ad_images`
+--
 
--- جدول شهرها
-CREATE TABLE cities (
-    city_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,
-    province_id INT NOT NULL,
-    FOREIGN KEY (province_id) REFERENCES provinces(province_id) ON DELETE RESTRICT,
-    UNIQUE (name, province_id)
-) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_persian_ci;
+DROP TABLE IF EXISTS `ad_images`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ad_images` (
+  `image_id` int NOT NULL AUTO_INCREMENT,
+  `ad_id` int NOT NULL,
+  `image_url` varchar(255) COLLATE utf8mb4_persian_ci NOT NULL,
+  PRIMARY KEY (`image_id`),
+  KEY `ad_id` (`ad_id`),
+  CONSTRAINT `ad_images_ibfk_1` FOREIGN KEY (`ad_id`) REFERENCES `advertisements` (`ad_id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=43 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- جدول کاربران
-CREATE TABLE users (
-    phone_number VARCHAR(11) PRIMARY KEY,
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50) NOT NULL,
-    nickname VARCHAR(50) NOT NULL UNIQUE,
-    province_id INT NOT NULL,
-    city_id INT NOT NULL,
-    account_level ENUM('LEVEL_1', 'LEVEL_2', 'LEVEL_3') NOT NULL DEFAULT 'LEVEL_1',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (province_id) REFERENCES provinces(province_id) ON DELETE RESTRICT,
-    FOREIGN KEY (city_id) REFERENCES cities(city_id) ON DELETE RESTRICT
-) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_persian_ci;
+--
+-- Table structure for table `advertisements`
+--
 
--- جدول دستگاه‌های فعال کاربر
-CREATE TABLE active_devices (
-    device_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_phone_number VARCHAR(11) NOT NULL,
-    device_token VARCHAR(255) NOT NULL,
-    last_active TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_phone_number) REFERENCES users(phone_number) ON DELETE CASCADE
-) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_persian_ci;
+DROP TABLE IF EXISTS `advertisements`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `advertisements` (
+  `ad_id` int NOT NULL AUTO_INCREMENT,
+  `title` varchar(100) COLLATE utf8mb4_persian_ci NOT NULL,
+  `ad_type` enum('REAL_ESTATE','VEHICLE','DIGITAL','HOME','SERVICES','PERSONAL','ENTERTAINMENT') COLLATE utf8mb4_persian_ci NOT NULL,
+  `status` enum('PENDING','APPROVED','REJECTED') COLLATE utf8mb4_persian_ci NOT NULL DEFAULT 'PENDING',
+  `owner_phone_number` varchar(11) COLLATE utf8mb4_persian_ci NOT NULL,
+  `province_id` int NOT NULL,
+  `city_id` int NOT NULL,
+  `description` text COLLATE utf8mb4_persian_ci NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `price` bigint DEFAULT NULL,
+  PRIMARY KEY (`ad_id`),
+  KEY `idx_advertisements_ad_type` (`ad_type`),
+  KEY `idx_advertisements_province_id` (`province_id`),
+  KEY `idx_advertisements_city_id` (`city_id`),
+  KEY `idx_advertisements_owner_phone` (`owner_phone_number`),
+  CONSTRAINT `advertisements_ibfk_1` FOREIGN KEY (`owner_phone_number`) REFERENCES `users` (`phone_number`) ON DELETE CASCADE,
+  CONSTRAINT `advertisements_ibfk_2` FOREIGN KEY (`province_id`) REFERENCES `provinces` (`province_id`) ON DELETE RESTRICT,
+  CONSTRAINT `advertisements_ibfk_3` FOREIGN KEY (`city_id`) REFERENCES `cities` (`city_id`) ON DELETE RESTRICT
+) ENGINE=InnoDB AUTO_INCREMENT=43 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- جدول آگهی‌ها (ویژگی‌های عمومی)
-CREATE TABLE advertisements (
-    ad_id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(100) NOT NULL,
-    ad_type ENUM('REAL_ESTATE', 'VEHICLE', 'DIGITAL', 'HOME', 'SERVICES', 'PERSONAL', 'ENTERTAINMENT') NOT NULL,
-    status ENUM('PUBLISHED', 'UNDER_REVIEW') NOT NULL DEFAULT 'UNDER_REVIEW',
-    owner_phone_number VARCHAR(11) NOT NULL,
-    province_id INT NOT NULL,
-    city_id INT NOT NULL,
-    description TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (owner_phone_number) REFERENCES users(phone_number) ON DELETE CASCADE,
-    FOREIGN KEY (province_id) REFERENCES provinces(province_id) ON DELETE RESTRICT,
-    FOREIGN KEY (city_id) REFERENCES cities(city_id) ON DELETE RESTRICT
-) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_persian_ci;
+--
+-- Table structure for table `bookmarks`
+--
 
--- جدول عکس‌های آگهی
-CREATE TABLE ad_images (
-    image_id INT AUTO_INCREMENT PRIMARY KEY,
-    ad_id INT NOT NULL,
-    image_url VARCHAR(255) NOT NULL,
-    FOREIGN KEY (ad_id) REFERENCES advertisements(ad_id) ON DELETE CASCADE
-) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_persian_ci;
+DROP TABLE IF EXISTS `bookmarks`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `bookmarks` (
+  `bookmark_id` int NOT NULL AUTO_INCREMENT,
+  `user_phone_number` varchar(11) COLLATE utf8mb4_persian_ci NOT NULL,
+  `ad_id` int NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`bookmark_id`),
+  UNIQUE KEY `user_phone_number` (`user_phone_number`,`ad_id`),
+  KEY `ad_id` (`ad_id`),
+  KEY `idx_bookmarks_user_phone` (`user_phone_number`),
+  CONSTRAINT `bookmarks_ibfk_1` FOREIGN KEY (`user_phone_number`) REFERENCES `users` (`phone_number`) ON DELETE CASCADE,
+  CONSTRAINT `bookmarks_ibfk_2` FOREIGN KEY (`ad_id`) REFERENCES `advertisements` (`ad_id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- جدول آگهی‌های املاک (فروش و اجاره مسکونی)
-CREATE TABLE real_estate_ads (
-    ad_id INT PRIMARY KEY,
-    real_estate_type ENUM('SALE', 'RENT') NOT NULL,
-    area INT NOT NULL,
-    construction_year INT NOT NULL,
-    rooms INT NOT NULL,
-    total_price BIGINT NOT NULL,
-    price_per_meter BIGINT NOT NULL,
-    has_parking BOOLEAN NOT NULL DEFAULT FALSE,
-    has_storage BOOLEAN NOT NULL DEFAULT FALSE,
-    has_balcony BOOLEAN NOT NULL DEFAULT FALSE,
-    deposit BIGINT NOT NULL,
-    monthly_rent BIGINT NOT NULL,
-    floor INT NOT NULL,
-    FOREIGN KEY (ad_id) REFERENCES advertisements(ad_id) ON DELETE CASCADE
-) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_persian_ci;
+--
+-- Table structure for table `cities`
+--
 
--- جدول آگهی‌های وسایل نقلیه
-CREATE TABLE vehicle_ads (
-    ad_id INT PRIMARY KEY,
-    mileage INT NOT NULL,
-    model_year INT NOT NULL,
-    color VARCHAR(50) NOT NULL,
-    brand VARCHAR(50) NOT NULL,
-    model VARCHAR(50) NOT NULL,
-    gearbox ENUM('MANUAL', 'AUTOMATIC') NOT NULL,
-    base_price BIGINT NOT NULL,
-    engine_status ENUM('HEALTHY', 'NEEDS_REPAIR') NOT NULL,
-    chassis_status ENUM('HEALTHY', 'IMPACTED') NOT NULL,
-    body_status ENUM('HEALTHY', 'MINOR_SCRATCH', 'ACCIDENTED') NOT NULL,
-    FOREIGN KEY (ad_id) REFERENCES advertisements(ad_id) ON DELETE CASCADE
-) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_persian_ci;
+DROP TABLE IF EXISTS `cities`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cities` (
+  `city_id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `province_id` int NOT NULL,
+  PRIMARY KEY (`city_id`),
+  UNIQUE KEY `name` (`name`,`province_id`),
+  KEY `province_id` (`province_id`),
+  CONSTRAINT `cities_ibfk_1` FOREIGN KEY (`province_id`) REFERENCES `provinces` (`province_id`) ON DELETE RESTRICT
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- جدول نشان‌شده‌ها
-CREATE TABLE bookmarks (
-    bookmark_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_phone_number VARCHAR(11) NOT NULL,
-    ad_id INT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_phone_number) REFERENCES users(phone_number) ON DELETE CASCADE,
-    FOREIGN KEY (ad_id) REFERENCES advertisements(ad_id) ON DELETE CASCADE,
-    UNIQUE (user_phone_number, ad_id)
-) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_persian_ci;
+--
+-- Table structure for table `comments`
+--
 
--- جدول بازدیدهای اخیر
-CREATE TABLE recent_visits (
-    visit_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_phone_number VARCHAR(11) NOT NULL,
-    ad_id INT NOT NULL,
-    visited_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_phone_number) REFERENCES users(phone_number) ON DELETE CASCADE,
-    FOREIGN KEY (ad_id) REFERENCES advertisements(ad_id) ON DELETE CASCADE
-) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_persian_ci;
+DROP TABLE IF EXISTS `comments`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `comments` (
+  `comment_id` int NOT NULL AUTO_INCREMENT,
+  `ad_id` int NOT NULL,
+  `user_phone_number` varchar(11) COLLATE utf8mb4_persian_ci NOT NULL,
+  `content` text COLLATE utf8mb4_persian_ci NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`comment_id`),
+  KEY `ad_id` (`ad_id`),
+  KEY `user_phone_number` (`user_phone_number`),
+  CONSTRAINT `comments_ibfk_1` FOREIGN KEY (`ad_id`) REFERENCES `advertisements` (`ad_id`) ON DELETE CASCADE,
+  CONSTRAINT `comments_ibfk_2` FOREIGN KEY (`user_phone_number`) REFERENCES `users` (`phone_number`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- جدول کامنت‌ها
-CREATE TABLE comments (
-    comment_id INT AUTO_INCREMENT PRIMARY KEY,
-    ad_id INT NOT NULL,
-    user_phone_number VARCHAR(11) NOT NULL,
-    content TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (ad_id) REFERENCES advertisements(ad_id) ON DELETE CASCADE,
-    FOREIGN KEY (user_phone_number) REFERENCES users(phone_number) ON DELETE CASCADE
-) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_persian_ci;
+--
+-- Table structure for table `provinces`
+--
 
--- نمایه‌ها برای بهبود عملکرد جست‌جو و فیلتر
-CREATE INDEX idx_advertisements_ad_type ON advertisements(ad_type);
-CREATE INDEX idx_advertisements_province_id ON advertisements(province_id);
-CREATE INDEX idx_advertisements_city_id ON advertisements(city_id);
-CREATE INDEX idx_advertisements_owner_phone ON advertisements(owner_phone_number);
-CREATE INDEX idx_bookmarks_user_phone ON bookmarks(user_phone_number);
-CREATE INDEX idx_recent_visits_user_phone ON recent_visits(user_phone_number);
+DROP TABLE IF EXISTS `provinces`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `provinces` (
+  `province_id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) COLLATE utf8mb4_persian_ci NOT NULL,
+  PRIMARY KEY (`province_id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
--- درج داده‌های نمونه برای استان‌ها و شهرها (با نام‌های انگلیسی)
-INSERT INTO provinces (name) VALUES
-    ('Tehran'),
-    ('Isfahan'),
-    ('Fars'),
-    ('Khuzestan'),
-    ('Mazandaran');
+--
+-- Table structure for table `real_estate_ads`
+--
 
-INSERT INTO cities (name, province_id) VALUES
-    ('Tehran', 1),
-    ('Karaj', 1),
-    ('Isfahan', 2),
-    ('Kashan', 2),
-    ('Shiraz', 3),
-    ('Marvdasht', 3),
-    ('Ahvaz', 4),
-    ('Dezful', 4),
-    ('Sari', 5),
-    ('Babol', 5);
+DROP TABLE IF EXISTS `real_estate_ads`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `real_estate_ads` (
+  `ad_id` int NOT NULL,
+  `real_estate_type` enum('SALE','RENT') COLLATE utf8mb4_persian_ci NOT NULL,
+  `area` int NOT NULL,
+  `construction_year` int DEFAULT NULL,
+  `rooms` int NOT NULL,
+  `has_parking` tinyint(1) NOT NULL DEFAULT '0',
+  `has_storage` tinyint(1) NOT NULL DEFAULT '0',
+  `has_balcony` tinyint(1) NOT NULL DEFAULT '0',
+  `deposit` int DEFAULT NULL,
+  `monthly_rent` int DEFAULT NULL,
+  `floor` int NOT NULL,
+  `total_price` bigint DEFAULT NULL,
+  `price_per_meter` bigint DEFAULT NULL,
+  PRIMARY KEY (`ad_id`),
+  CONSTRAINT `real_estate_ads_ibfk_1` FOREIGN KEY (`ad_id`) REFERENCES `advertisements` (`ad_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `recent_visits`
+--
+
+DROP TABLE IF EXISTS `recent_visits`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `recent_visits` (
+  `visit_id` int NOT NULL AUTO_INCREMENT,
+  `user_phone_number` varchar(11) COLLATE utf8mb4_persian_ci NOT NULL,
+  `ad_id` int NOT NULL,
+  `visited_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`visit_id`),
+  KEY `ad_id` (`ad_id`),
+  KEY `idx_recent_visits_user_phone` (`user_phone_number`),
+  CONSTRAINT `recent_visits_ibfk_1` FOREIGN KEY (`user_phone_number`) REFERENCES `users` (`phone_number`) ON DELETE CASCADE,
+  CONSTRAINT `recent_visits_ibfk_2` FOREIGN KEY (`ad_id`) REFERENCES `advertisements` (`ad_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `users`
+--
+
+DROP TABLE IF EXISTS `users`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `users` (
+  `phone_number` varchar(11) COLLATE utf8mb4_persian_ci NOT NULL,
+  `first_name` varchar(50) COLLATE utf8mb4_persian_ci NOT NULL,
+  `last_name` varchar(50) COLLATE utf8mb4_persian_ci NOT NULL,
+  `nickname` varchar(50) COLLATE utf8mb4_persian_ci NOT NULL,
+  `province_id` int NOT NULL,
+  `city_id` int NOT NULL,
+  `account_level` enum('LEVEL_1','LEVEL_2','LEVEL_3') COLLATE utf8mb4_persian_ci NOT NULL DEFAULT 'LEVEL_1',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`phone_number`),
+  UNIQUE KEY `nickname` (`nickname`),
+  KEY `province_id` (`province_id`),
+  KEY `city_id` (`city_id`),
+  CONSTRAINT `users_ibfk_1` FOREIGN KEY (`province_id`) REFERENCES `provinces` (`province_id`) ON DELETE RESTRICT,
+  CONSTRAINT `users_ibfk_2` FOREIGN KEY (`city_id`) REFERENCES `cities` (`city_id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `vehicle_ads`
+--
+
+DROP TABLE IF EXISTS `vehicle_ads`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `vehicle_ads` (
+  `ad_id` int NOT NULL,
+  `mileage` int NOT NULL,
+  `color` varchar(50) COLLATE utf8mb4_persian_ci NOT NULL,
+  `brand` varchar(50) COLLATE utf8mb4_persian_ci NOT NULL,
+  `model` varchar(50) COLLATE utf8mb4_persian_ci NOT NULL,
+  `gearbox` enum('MANUAL','AUTOMATIC') COLLATE utf8mb4_persian_ci NOT NULL,
+  `engine_status` enum('HEALTHY','NEEDS_REPAIR') COLLATE utf8mb4_persian_ci NOT NULL,
+  `chassis_status` enum('HEALTHY','IMPACTED') COLLATE utf8mb4_persian_ci NOT NULL,
+  `body_status` enum('HEALTHY','MINOR_SCRATCH','ACCIDENTED') COLLATE utf8mb4_persian_ci NOT NULL,
+  `base_price` bigint DEFAULT NULL,
+  PRIMARY KEY (`ad_id`),
+  CONSTRAINT `vehicle_ads_ibfk_1` FOREIGN KEY (`ad_id`) REFERENCES `advertisements` (`ad_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- Dump completed on 2025-05-15 20:51:24

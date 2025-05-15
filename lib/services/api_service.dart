@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:divar_app/models/city.dart';
+import 'package:divar_app/models/province.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import '../constants.dart';
@@ -236,6 +238,50 @@ class ApiService {
     } catch (e) {
       print('Error searching ads: $e');
       throw Exception('Failed to search ads: $e');
+    }
+  }
+
+  Future<List<Province>> getProvinces() async {
+    try {
+      final uri = Uri.parse('$apiBaseUrl/provinces');
+      print('Fetching provinces from: $uri');
+      final response = await http.get(
+        uri,
+        headers: {'Accept': 'application/json; charset=utf-8'},
+      );
+      print('Get provinces status: ${response.statusCode}');
+      print('Get provinces body: ${response.body}');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => Province.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to load provinces');
+      }
+    } catch (e) {
+      print('Error fetching provinces: $e');
+      throw Exception('Failed to fetch provinces: $e');
+    }
+  }
+
+  Future<List<City>> getCities(int provinceId) async {
+    try {
+      final uri = Uri.parse('$apiBaseUrl/cities?province_id=$provinceId');
+      print('Fetching cities from: $uri');
+      final response = await http.get(
+        uri,
+        headers: {'Accept': 'application/json; charset=utf-8'},
+      );
+      print('Get cities status: ${response.statusCode}');
+      print('Get cities body: ${response.body}');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => City.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to load cities');
+      }
+    } catch (e) {
+      print('Error fetching cities: $e');
+      throw Exception('Failed to fetch cities: $e');
     }
   }
 

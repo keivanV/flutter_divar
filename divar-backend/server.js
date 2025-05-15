@@ -5,6 +5,7 @@ const errorHandler = require('./middleware/errorHandler');
 const userRoutes = require('./routes/userRoutes');
 const adRoutes = require('./routes/adRoutes');
 const bookmarkRoutes = require('./routes/bookmarkRoutes');
+const locationRoutes = require('./routes/locationRoutes');
 const cors = require('cors');
 require('dotenv').config();
 
@@ -58,6 +59,7 @@ app.use('/uploads', express.static('uploads'));
 app.use('/api/users', userRoutes);
 app.use('/api/ads', adRoutes);
 app.use('/api/bookmarks', bookmarkRoutes);
+app.use('/api', locationRoutes); 
 
 // مسیر آپلود تصاویر
 app.post('/api/upload', upload.single('image'), async (req, res, next) => {

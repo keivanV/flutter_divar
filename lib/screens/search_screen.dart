@@ -1,9 +1,7 @@
-
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/ad.dart';
 import '../providers/ad_provider.dart';
+import '../models/ad.dart';
 
 class SearchScreen extends StatefulWidget {
   final String? initialQuery;
@@ -16,53 +14,32 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
-  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
-    print('SearchScreen initState called');
-    if (widget.initialQuery != null) {
+    // Initialize search bar with initialQuery and trigger search
+    if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
       _searchController.text = widget.initialQuery!;
-      _searchQuery = widget.initialQuery!;
-      print('SearchScreen initial query: $_searchQuery');
-      Provider.of<AdProvider>(context, listen: false).searchAds(_searchQuery);
-    }
-    _searchController.addListener(() {
-      final query = _searchController.text.trim();
-      print('TextField listener triggered: $query');
-      if (_debounce?.isActive ?? false) _debounce!.cancel();
-      _debounce = Timer(const Duration(milliseconds: 500), () {
-        setState(() {
-          _searchQuery = query;
-          print('Search query updated: $_searchQuery');
-        });
-        if (query.isNotEmpty) {
-          print('Triggering search for query: $query');
-          Provider.of<AdProvider>(context, listen: false).searchAds(query);
-        } else {
-          print('Clearing search results');
-          Provider.of<AdProvider>(context, listen: false).clearSearchResults();
-        }
+      print('SearchScreen initialized with query: ${widget.initialQuery}');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Provider.of<AdProvider>(context, listen: false)
+            .searchAds(widget.initialQuery!);
       });
-    });
+    }
   }
 
   @override
   void dispose() {
-    print('SearchScreen dispose called');
     _searchController.dispose();
-    _debounce?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    print('SearchScreen build called');
     return Scaffold(
       appBar: AppBar(
-        title: const Text('جستجوی آگهی'),
+        title: const Text('جستجوی آگهی‌ها'),
         backgroundColor: Colors.red,
         centerTitle: true,
       ),
@@ -73,26 +50,21 @@ class _SearchScreenState extends State<SearchScreen> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'جستجو در عنوان یا توضیحات...',
+                hintText: 'جستجو در آگهی‌ها...',
+                hintStyle: const TextStyle(fontFamily: 'Vazir'),
                 prefixIcon: const Icon(Icons.search, color: Colors.red),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
                 ),
                 filled: true,
                 fillColor: Colors.grey[100],
               ),
               textDirection: TextDirection.rtl,
-              textInputAction: TextInputAction.search,
-              autofocus: true,
-              onChanged: (value) {
-                print('TextField onChanged: $value');
-              },
-              onSubmitted: (value) {
-                final query = value.trim();
-                print('TextField onSubmitted: $query');
+              onSubmitted: (query) {
                 if (query.isNotEmpty) {
-                  Provider.of<AdProvider>(context, listen: false).searchAds(query);
+                  print('Searching for: $query');
+                  Provider.of<AdProvider>(context, listen: false)
+                      .searchAds(query);
                 }
               },
             ),
@@ -100,8 +72,8 @@ class _SearchScreenState extends State<SearchScreen> {
           Expanded(
             child: Consumer<AdProvider>(
               builder: (context, adProvider, child) {
-                print('Consumer rebuilt with ${adProvider.searchResults.length} results');
-                print('Current state: isLoading=${adProvider.isLoading}, error=${adProvider.errorMessage}');
+                print(
+                    'SearchScreen Consumer rebuilt: searchResults=${adProvider.searchResults.length}');
                 if (adProvider.isLoading) {
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -110,58 +82,197 @@ class _SearchScreenState extends State<SearchScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                        const SizedBox(height: 16),
                         Text(
                           adProvider.errorMessage!,
-                          style: const TextStyle(color: Colors.red),
+                          style: const TextStyle(
+                              color: Colors.red, fontFamily: 'Vazir'),
                           textDirection: TextDirection.rtl,
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: () {
-                            if (_searchQuery.isNotEmpty) {
-                              adProvider.searchAds(_searchQuery);
-                            }
+                            adProvider.searchAds(_searchController.text);
                           },
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                          child: const Text('تلاش مجدد', style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red),
+                          child: const Text('تلاش مجدد',
+                              style: TextStyle(
+                                  color: Colors.white, fontFamily: 'Vazir')),
                         ),
                       ],
                     ),
                   );
                 }
-                if (adProvider.searchResults.isNotEmpty) {
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: adProvider.searchResults.length,
-                    itemBuilder: (context, index) {
-                      final ad = adProvider.searchResults[index];
-                      print('Rendering ad: ${ad.adId}, title: ${ad.title}');
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        child: ListTile(
-                          title: Text(
-                            ad.title,
-                            textDirection: TextDirection.rtl,
-                          ),
-                          subtitle: Text(
-                            ad.description.length > 50
-                                ? '${ad.description.substring(0, 50)}...'
-                                : ad.description,
-                            textDirection: TextDirection.rtl,
-                          ),
-                          onTap: () {
-                            print('Tapped ad: ${ad.adId}');
-                            Navigator.pushNamed(context, '/ad_details', arguments: ad);
-                          },
-                        ),
-                      );
-                    },
+                if (adProvider.searchResults.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'نتیجه‌ای یافت نشد',
+                      style: TextStyle(fontSize: 18, fontFamily: 'Vazir'),
+                      textDirection: TextDirection.rtl,
+                    ),
                   );
                 }
-                // Show nothing when no results or query is empty
-                return const SizedBox.shrink();
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: adProvider.searchResults.length,
+                  itemBuilder: (context, index) {
+                    final ad = adProvider.searchResults[index];
+                    // Determine price to display
+                    String priceText;
+                    if (ad.adType == 'REAL_ESTATE' && ad.totalPrice != null) {
+                      priceText = 'قیمت: ${ad.totalPrice} تومان';
+                    } else if (ad.adType == 'VEHICLE' && ad.basePrice != null) {
+                      priceText = 'قیمت: ${ad.basePrice} تومان';
+                    } else if (ad.price != null) {
+                      priceText = 'قیمت: ${ad.price} تومان';
+                    } else {
+                      priceText = 'قیمت: توافقی';
+                    }
+                    // Determine specific details
+                    String detailsText = '';
+                    if (ad.adType == 'REAL_ESTATE' && ad.area != null) {
+                      detailsText = 'متراژ: ${ad.area} متر';
+                      if (ad.realEstateType != null) {
+                        detailsText +=
+                            ' | نوع: ${ad.realEstateType == 'SALE' ? 'فروش' : 'اجاره'}';
+                      }
+                    } else if (ad.adType == 'VEHICLE' &&
+                        ad.brand != null &&
+                        ad.model != null) {
+                      detailsText = 'خودرو: ${ad.brand} ${ad.model}';
+                      if (ad.mileage != null) {
+                        detailsText += ' | کارکرد: ${ad.mileage} کیلومتر';
+                      }
+                    }
+                    // Location
+                    final locationText =
+                        (ad.provinceName != null && ad.cityName != null)
+                            ? 'مکان: ${ad.provinceName}، ${ad.cityName}'
+                            : 'مکان: نامشخص';
+                    return Card(
+                      elevation: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: InkWell(
+                        onTap: () {
+                          print('Tapped ad: ${ad.adId}');
+                          Navigator.pushNamed(context, '/ad_details',
+                              arguments: ad);
+                        },
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Image or Placeholder
+                            Container(
+                              width: 120,
+                              height: 120,
+                              margin: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                color: Colors.grey[300],
+                              ),
+                              child: ad.imageUrls.isNotEmpty
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        ad.imageUrls.first,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                const Icon(
+                                          Icons.broken_image,
+                                          size: 50,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.image,
+                                      size: 50,
+                                      color: Colors.grey,
+                                    ),
+                            ),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      ad.title,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'Vazir',
+                                      ),
+                                      textDirection: TextDirection.rtl,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      ad.description.length > 50
+                                          ? '${ad.description.substring(0, 50)}...'
+                                          : ad.description,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontFamily: 'Vazir',
+                                        color: Colors.grey,
+                                      ),
+                                      textDirection: TextDirection.rtl,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      priceText,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontFamily: 'Vazir',
+                                        color: Colors.red,
+                                      ),
+                                      textDirection: TextDirection.rtl,
+                                    ),
+                                    if (detailsText.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        detailsText,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontFamily: 'Vazir',
+                                        ),
+                                        textDirection: TextDirection.rtl,
+                                      ),
+                                    ],
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'نوع: ${ad.adType == 'REAL_ESTATE' ? 'املاک' : ad.adType == 'VEHICLE' ? 'خودرو' : 'سایر'}',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontFamily: 'Vazir',
+                                      ),
+                                      textDirection: TextDirection.rtl,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      locationText,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontFamily: 'Vazir',
+                                      ),
+                                      textDirection: RegExp(r'^[a-zA-Z\s]+$')
+                                              .hasMatch(ad.provinceName ?? '')
+                                          ? TextDirection.ltr
+                                          : TextDirection.rtl,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
               },
             ),
           ),

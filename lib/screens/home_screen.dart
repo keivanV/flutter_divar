@@ -19,7 +19,7 @@ class HomeScreen extends StatelessWidget {
         listen: false); // Use listen: false for manual calls
 
     return Scaffold(
-      appBar: const CustomAppBar(),
+      appBar: CustomAppBar(),
       body: Column(
         children: [
           // دسته‌بندی‌ها

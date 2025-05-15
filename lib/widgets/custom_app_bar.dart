@@ -1,10 +1,10 @@
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../screens/location_screen.dart';
 import '../providers/ad_provider.dart';
 import '../screens/search_screen.dart';
+import '../models/province.dart';
 
 class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   const CustomAppBar({super.key});
@@ -21,20 +21,13 @@ class _CustomAppBarState extends State<CustomAppBar> {
   Timer? _debounce;
 
   @override
-  void initState() {
-    super.initState();
-    print('CustomAppBar initState called');
-  }
-
-  @override
   void dispose() {
-    print('CustomAppBar dispose called');
     _searchController.dispose();
     _debounce?.cancel();
     super.dispose();
   }
 
-  void _onSearchChanged(String query) {
+  void _onSearchChanged(BuildContext context, String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
       print('CustomAppBar search query: $query');
@@ -60,12 +53,42 @@ class _CustomAppBarState extends State<CustomAppBar> {
       title: const Text('دیوار'),
       backgroundColor: Colors.red,
       actions: [
-        IconButton(
-          icon: const Icon(Icons.location_on, size: 24),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const LocationScreen()),
+        Consumer<AdProvider>(
+          builder: (context, adProvider, child) {
+            String provinceName = 'لوکیشن';
+            if (adProvider.selectedProvinceId != null) {
+              final selectedProvince = adProvider.provinces.firstWhere(
+                (province) =>
+                    province.provinceId == adProvider.selectedProvinceId,
+                orElse: () => Province(provinceId: 0, name: 'لوکیشن'),
+              );
+              provinceName = selectedProvince.name;
+            }
+            return Row(
+              children: [
+                Text(
+                  provinceName,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.white,
+                    fontFamily: 'Vazir',
+                  ),
+                  textDirection: RegExp(r'^[a-zA-Z\s]+$').hasMatch(provinceName)
+                      ? TextDirection.ltr
+                      : TextDirection.rtl,
+                ),
+                const SizedBox(width: 4), // Space between text and icon
+                IconButton(
+                  icon: const Icon(Icons.location_on, size: 24),
+                  onPressed: () {
+                    print('Navigating to LocationScreen');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LocationScreen()),
+                    );
+                  },
+                ),
+              ],
             );
           },
         ),
@@ -77,7 +100,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
           controller: _searchController,
           onChanged: (value) {
             print('CustomAppBar TextField onChanged: $value');
-            _onSearchChanged(value.trim());
+            _onSearchChanged(context, value.trim());
           },
           decoration: InputDecoration(
             hintText: 'جستجو در عنوان یا توضیحات...',

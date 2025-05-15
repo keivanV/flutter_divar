@@ -1,4 +1,5 @@
 import 'package:divar_app/screens/ad_details_screen.dart';
+import 'package:divar_app/screens/location_screen.dart';
 import 'package:divar_app/screens/myAds_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -72,6 +73,7 @@ class MyApp extends StatelessWidget {
                           phoneNumber: authProvider.phoneNumber ?? '',
                         ),
                       ),
+                  '/location': (context) => const LocationScreen(),
                 },
               );
             },

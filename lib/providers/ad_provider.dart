@@ -3,11 +3,15 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/ad.dart';
 import '../services/api_service.dart';
+import '../models/province.dart';
+import '../models/city.dart';
 
 class AdProvider with ChangeNotifier {
   List<Ad> _ads = [];
   List<Ad> _userAds = [];
-  List<Ad> _searchResults = []; // New field for search results
+  List<Ad> _searchResults = [];
+  List<Province> _provinces = []; // New field for provinces
+  List<City> _cities = []; // New field for cities
   bool _isLoading = false;
   String? _sortBy;
   String? _errorMessage;
@@ -18,12 +22,16 @@ class AdProvider with ChangeNotifier {
 
   List<Ad> get ads => _ads;
   List<Ad> get userAds => _userAds;
-  List<Ad> get searchResults => _searchResults; // New getter for search results
+  List<Ad> get searchResults => _searchResults;
+  List<Province> get provinces => _provinces; // New getter
+  List<City> get cities => _cities; // New getter
   bool get isLoading => _isLoading;
   String? get sortBy => _sortBy;
   String? get errorMessage => _errorMessage;
   String? get adType => _adType;
   String? get realEstateType => _realEstateType;
+  int? get selectedProvinceId => _provinceId; // New getter
+  int? get selectedCityId => _cityId; // New getter
 
   final ApiService _apiService = ApiService();
   static const List<String> _validSortByValues = [
@@ -79,7 +87,6 @@ class AdProvider with ChangeNotifier {
         throw Exception('شماره تلفن باید 11 رقم باشد');
       }
 
-      // Set price based on adType
       String effectivePrice;
       if (adType == 'VEHICLE') {
         if (basePrice == null || int.tryParse(basePrice) == null) {
@@ -186,10 +193,9 @@ class AdProvider with ChangeNotifier {
         sortBy: _sortBy,
       );
       try {
-        await fetchUserAds(cleanPhoneNumber); // Refresh user ads
+        await fetchUserAds(cleanPhoneNumber);
       } catch (e) {
         print('Failed to refresh user ads after posting: $e');
-        // Continue without failing the post
       }
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
@@ -210,7 +216,6 @@ class AdProvider with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    // Validate sortBy
     final validatedSortBy =
         sortBy != null && _validSortByValues.contains(sortBy) ? sortBy : null;
 
@@ -308,7 +313,7 @@ class AdProvider with ChangeNotifier {
         price: price,
       );
       print('Ad updated: $adId');
-      await fetchUserAds(phoneNumber); // Use provided phoneNumber
+      await fetchUserAds(phoneNumber);
     } catch (e, stackTrace) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       print('Error updating ad: $_errorMessage');
@@ -327,7 +332,7 @@ class AdProvider with ChangeNotifier {
     try {
       await _apiService.deleteAd(adId);
       print('Ad deleted: $adId');
-      await fetchUserAds(phoneNumber); // Use provided phoneNumber
+      await fetchUserAds(phoneNumber);
     } catch (e, stackTrace) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       print('Error deleting ad: $_errorMessage');
@@ -347,7 +352,6 @@ class AdProvider with ChangeNotifier {
   }) {
     bool changed = false;
 
-    // Validate sortBy
     final validatedSortBy =
         sortBy != null && _validSortByValues.contains(sortBy)
             ? sortBy
@@ -396,5 +400,37 @@ class AdProvider with ChangeNotifier {
       print('Filters cleared');
       fetchAds();
     }
+  }
+
+  Future<void> fetchProvinces() async {
+    try {
+      _provinces = await _apiService.getProvinces();
+      print('Fetched ${_provinces.length} provinces');
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      print('Error fetching provinces: $_errorMessage');
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchCities(int provinceId) async {
+    try {
+      _cities = await _apiService.getCities(provinceId);
+      print('Fetched ${_cities.length} cities for provinceId: $provinceId');
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      print('Error fetching cities: $_errorMessage');
+      notifyListeners();
+    }
+  }
+
+  void setLocation(int provinceId, int cityId) {
+    print('Setting location: provinceId=$provinceId, cityId=$cityId');
+    _provinceId = provinceId;
+    _cityId = cityId;
+    notifyListeners();
+    fetchAds(provinceId: provinceId, cityId: cityId);
   }
 }

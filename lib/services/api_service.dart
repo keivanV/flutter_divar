@@ -211,6 +211,34 @@ class ApiService {
     }
   }
 
+  Future<List<Ad>> searchAds(String query) async {
+    try {
+      final uri = Uri.parse(
+          '$apiBaseUrl/ads/search?query=${Uri.encodeQueryComponent(query)}');
+      print('Searching ads from: $uri');
+      final response = await http.get(
+        uri,
+        headers: {'Accept': 'application/json; charset=utf-8'},
+      );
+      print('Search ads status: ${response.statusCode}');
+      print('Search ads body: ${response.body}');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        print('Parsed search ads data: $data');
+        return data.map((json) => Ad.fromJson(json)).toList();
+      } else if (response.statusCode == 404) {
+        print('No ads found for query: $query');
+        return []; // Treat 404 as empty result
+      } else {
+        throw Exception(
+            'Failed to search ads: ${response.statusCode} ${response.body}');
+      }
+    } catch (e) {
+      print('Error searching ads: $e');
+      throw Exception('Failed to search ads: $e');
+    }
+  }
+
   Future<void> postAd(Map<String, dynamic> adData, List<File> images) async {
     try {
       final uri = Uri.parse('$apiBaseUrl/ads');

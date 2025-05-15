@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 class AdProvider with ChangeNotifier {
   List<Ad> _ads = [];
   List<Ad> _userAds = [];
+  List<Ad> _searchResults = []; // New field for search results
   bool _isLoading = false;
   String? _sortBy;
   String? _errorMessage;
@@ -17,6 +18,7 @@ class AdProvider with ChangeNotifier {
 
   List<Ad> get ads => _ads;
   List<Ad> get userAds => _userAds;
+  List<Ad> get searchResults => _searchResults; // New getter for search results
   bool get isLoading => _isLoading;
   String? get sortBy => _sortBy;
   String? get errorMessage => _errorMessage;
@@ -258,6 +260,33 @@ class AdProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> searchAds(String query) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      print('Searching ads with query: $query');
+      final ads = await _apiService.searchAds(query);
+      print('Fetched ${ads.length} ads for query: $query');
+      _searchResults = ads;
+    } catch (e, stackTrace) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      print('Error searching ads: $_errorMessage');
+      print('Stack trace: $stackTrace');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  void clearSearchResults() {
+    _searchResults = [];
+    _errorMessage = null;
+    print('Search results cleared');
+    notifyListeners();
   }
 
   Future<void> updateAd({

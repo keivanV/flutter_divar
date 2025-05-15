@@ -335,6 +335,131 @@ async function createAd(req, res) {
   }
 }
 
+
+async function searchAds(req, res) {
+  try {
+    const { query } = req.query;
+    console.log('Received query:', query);
+    console.log('Query hex:', Buffer.from(query, 'utf8').toString('hex'));
+    if (!query || query.trim() === '') {
+      console.log('Empty or invalid query received');
+      return res.status(400).json({ message: 'عبارت جستجو الزامی است' });
+    }
+
+    const searchQuery = `%${query.trim()}%`;
+    console.log('Processed search query:', searchQuery);
+    console.log('Search query hex:', Buffer.from(searchQuery, 'utf8').toString('hex'));
+
+    await db.raw('SET NAMES utf8mb4');
+    const adsResult = await db.raw(
+      `
+      SELECT 
+        a.ad_id, a.title, a.description, a.ad_type, a.price, 
+        a.province_id, a.city_id, a.owner_phone_number, a.created_at, a.status,
+        p.name AS province_name, c.name AS city_name,
+        HEX(a.title) AS title_hex,
+        HEX(a.description) AS description_hex
+      FROM advertisements a
+      LEFT JOIN provinces p ON a.province_id = p.province_id
+      LEFT JOIN cities c ON a.city_id = c.city_id
+      WHERE a.title LIKE ? OR a.description LIKE ?
+      ORDER BY a.created_at DESC
+      `,
+      [searchQuery, searchQuery]
+    );
+    const ads = adsResult[0];
+    console.log('Ads found:', ads.length);
+    console.log('Ads data:', ads);
+
+    const result = await Promise.all(
+      ads.map(async (ad) => {
+        const imagesResult = await db.raw(
+          'SELECT image_url FROM ad_images WHERE ad_id = ?',
+          [ad.ad_id]
+        );
+        const imageUrls = imagesResult[0].map((img) => img.image_url).filter((url) => url != null);
+        console.log(`Images for ad ${ad.ad_id}:`, imageUrls);
+
+        let specificDetails = {};
+        if (ad.ad_type === 'REAL_ESTATE') {
+          const realEstateResult = await db.raw(
+            `
+            SELECT real_estate_type, area, construction_year, rooms, total_price,
+                   price_per_meter, has_parking, has_storage, has_balcony, deposit,
+                   monthly_rent, floor
+            FROM real_estate_ads
+            WHERE ad_id = ?
+            `,
+            [ad.ad_id]
+          );
+          specificDetails = realEstateResult[0][0] || {};
+          if (specificDetails.real_estate_type === 'SALE') {
+            specificDetails.deposit = null;
+            specificDetails.monthly_rent = null;
+          }
+        } else if (ad.ad_type === 'VEHICLE') {
+          const vehicleResult = await db.raw(
+            `
+            SELECT brand, model, mileage, color, gearbox, base_price,
+                   engine_status, chassis_status, body_status
+            FROM vehicle_ads
+            WHERE ad_id = ?
+            `,
+            [ad.ad_id]
+          );
+          specificDetails = vehicleResult[0][0] || {};
+        }
+
+        return {
+          ad_id: ad.ad_id,
+          title: ad.title,
+          description: ad.description,
+          ad_type: ad.ad_type,
+          price: ad.price,
+          province_id: ad.province_id,
+          city_id: ad.city_id,
+          owner_phone_number: ad.owner_phone_number,
+          created_at: ad.created_at,
+          status: ad.status,
+          province_name: ad.province_name,
+          city_name: ad.city_name,
+          images: imageUrls,
+          title_hex: ad.title_hex,
+          description_hex: ad.description_hex,
+          ...specificDetails,
+        };
+      })
+    );
+
+    console.log('Final response:', result);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Error searching ads:', error);
+    res.status(500).json({ message: `خطا در جستجوی آگهی‌ها: ${error.message}` });
+  }
+}
+
+async function testSearch(req, res) {
+  try {
+    await db.raw('SET NAMES utf8mb4');
+    const adsResult = await db.raw(
+      `
+      SELECT 
+        a.ad_id, a.title, a.description
+      FROM advertisements a
+      WHERE a.title LIKE ?
+      `,
+      ['%آگهی جدید%']
+    );
+    console.log('Test search results:', adsResult[0]);
+    res.status(200).json(adsResult[0]);
+  } catch (error) {
+    console.error('Test search error:', error);
+    res.status(500).json({ message: error.message });
+  }
+}
+
 // Update an ad
 async function updateAd(req, res) {
   try {
@@ -433,4 +558,5 @@ module.exports = {
   createAd,
   updateAd,
   deleteAd,
+  searchAds
 };

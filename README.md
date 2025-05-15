@@ -1,16 +1,42 @@
-# divar
+# Ad Details App
 
-A new Flutter project.
+A full-stack Flutter application for displaying detailed information about advertisements, such as real estate or vehicle listings. The app features a clean and responsive UI with functionalities like image carousels, bookmarking, commenting, and detailed property or vehicle information. The backend is powered by Node.js with a RESTful API and a MySQL database, hosted in a separate repository: `divar-backend`.
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 🚀 Features
 
-A few resources to get you started if this is your first Flutter project:
+- **Image Carousel:** View multiple images of the ad with navigation controls.
+- **Bookmarking:** Users can bookmark ads for quick access (requires authentication).
+- **Commenting:** Add and view comments on ads (mock implementation in frontend).
+- **Detailed Information:** Display specific details for real estate (e.g., area, rooms) or vehicles (e.g., brand, mileage).
+- **Responsive UI:** Optimized for various screen sizes with smooth scrolling.
+- **Authentication:** Integrated with a phone number-based auth system.
+- **Full-Stack Architecture:** Frontend built with Flutter, backend powered by Node.js, and MySQL database for data storage.
+- **RESTful API:** Provides endpoints for ad management, user authentication, and bookmarking.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+---
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 🧰 Tech Stack
+
+| Layer    | Technology           |
+| -------- | -------------------- |
+| Frontend | Flutter              |
+| Backend  | Node.js + Express    |
+| Database | MySQL                |
+
+---
+
+## 📸 Screenshots
+
+<div align="center">
+  <h4>🏠 Home Screen</h4>
+  <img src="project_images/screen1.png" alt="Home Screen" width="300"/>
+
+  <h4>📄 Ad Details</h4>
+  <img src="project_images/screen2.png" alt="Ad Details" width="300"/>
+
+  <h4>⭐ Bookmarked Ads</h4>
+  <img src="project_images/screen3.png" alt="Bookmarks" width="300"/>
+</div>
+

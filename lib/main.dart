@@ -1,6 +1,7 @@
 import 'package:divar_app/screens/ad_details_screen.dart';
 import 'package:divar_app/screens/location_screen.dart';
 import 'package:divar_app/screens/myAds_screen.dart';
+import 'package:divar_app/screens/post_ad_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -74,6 +75,7 @@ class MyApp extends StatelessWidget {
                         ),
                       ),
                   '/location': (context) => const LocationScreen(),
+                  '/post_ad': (context) => const PostAdScreen(),
                 },
               );
             },

@@ -1,117 +1,429 @@
+
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:divar_app/models/ad.dart';
+import 'package:divar_app/screens/ad_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../constants.dart';
 import '../providers/ad_provider.dart';
-import '../widgets/ad_card.dart';
-import '../widgets/category_card.dart';
 import '../widgets/custom_app_bar.dart';
-import '../widgets/filter_bar.dart';
-import 'bookmarks_screen.dart';
-import 'post_ad_screen.dart';
-import 'profile_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
+  _HomeScreenState createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final List<Map<String, dynamic>> categories = [
+    {'id': null, 'name': 'همه', 'icon': Icons.all_inclusive},
+    {'id': 'REAL_ESTATE', 'name': 'املاک', 'icon': Icons.home},
+    {'id': 'VEHICLE', 'name': 'وسایل نقلیه', 'icon': Icons.directions_car},
+    {'id': 'DIGITAL', 'name': 'لوازم الکترونیکی', 'icon': Icons.devices},
+    {'id': 'HOME', 'name': 'لوازم خانگی', 'icon': Icons.kitchen},
+    {'id': 'SERVICES', 'name': 'خدمات', 'icon': Icons.build},
+    {'id': 'PERSONAL', 'name': 'وسایل شخصی', 'icon': Icons.backpack},
+    {
+      'id': 'ENTERTAINMENT',
+      'name': 'سرگرمی و فراغت',
+      'icon': Icons.sports_soccer
+    },
+  ];
+
+  int _selectedIndex = 0; // Track the selected tab
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      print('HomeScreen initState: Fetching initial ads');
+      final adProvider = Provider.of<AdProvider>(context, listen: false);
+      if (adProvider.ads.isEmpty) {
+        adProvider.fetchAds(
+          provinceId: adProvider.selectedProvinceId,
+          cityId: adProvider.selectedCityId,
+          adType: adProvider.adType,
+        );
+      }
+    });
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    switch (index) {
+      case 0:
+        // Stay on HomeScreen
+        break;
+      case 1:
+        Navigator.pushNamed(context, '/my_ads');
+        break;
+      case 2:
+        Navigator.pushNamed(context, '/post_ad');
+        break;
+      case 3:
+        Navigator.pushNamed(context, '/profile');
+        break;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final adProvider = Provider.of<AdProvider>(context,
-        listen: false); // Use listen: false for manual calls
+    final screenWidth = MediaQuery.of(context).size.width;
+    final chipWidth = (screenWidth - 32 - 16) / 3; // 32 for padding, 16 for spacing
 
     return Scaffold(
-      appBar: CustomAppBar(),
-      body: Column(
-        children: [
-          // دسته‌بندی‌ها
-          Container(
-            padding: const EdgeInsets.all(4),
-            child: Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: categories
-                  .asMap()
-                  .entries
-                  .map((entry) => SizedBox(
-                        width: (MediaQuery.of(context).size.width - 24) / 4,
-                        height: 60,
-                        child: CategoryCard(
-                          name: entry.value['name'],
-                          icon: entry.value['icon'],
+      appBar: const CustomAppBar(),
+      body: Consumer<AdProvider>(
+        builder: (context, adProvider, child) {
+          print('HomeScreen Consumer rebuilt: ads=${adProvider.ads.length}, '
+              'provinceId=${adProvider.selectedProvinceId}, '
+              'cityId=${adProvider.selectedCityId}, '
+              'adType=${adProvider.adType}');
+          return Column(
+            children: [
+              // Category Filter
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: categories.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final category = entry.value;
+                    final isSelected = adProvider.adType == category['id'];
+                    return SizedBox(
+                      width: chipWidth,
+                      child: ChoiceChip(
+                        label: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected ? Colors.red : Colors.grey[200],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                category['icon'],
+                                size: 16,
+                                color: isSelected ? Colors.white : Colors.red,
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  category['name'],
+                                  style: TextStyle(
+                                    fontFamily: 'Vazir',
+                                    fontSize: 12,
+                                    color: isSelected ? Colors.white : Colors.red,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ))
-                  .toList(),
-            ),
-          ),
-          // فیلتر
-          const FilterBar(),
-          // لیست آگهی‌ها
-          Expanded(
-            child: Consumer<AdProvider>(
-              builder: (context, adProvider, child) {
-                return adProvider.isLoading
+                        selected: isSelected,
+                        selectedColor: Colors.transparent,
+                        backgroundColor: Colors.transparent,
+                        showCheckmark: false,
+                        side: BorderSide.none, // Remove black border
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        onSelected: (selected) {
+                          if (selected) {
+                            print('Selected category: ${category['id']}');
+                            adProvider.setFilters(
+                              adType: category['id'] as String?,
+                              provinceId: adProvider.selectedProvinceId,
+                              cityId: adProvider.selectedCityId,
+                            );
+                          }
+                        },
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              // Ads List
+              Expanded(
+                child: adProvider.isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : adProvider.errorMessage != null
                         ? Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
+                                const Icon(Icons.error_outline,
+                                    size: 64, color: Colors.red),
+                                const SizedBox(height: 16),
                                 Text(
                                   adProvider.errorMessage!,
-                                  style: const TextStyle(color: Colors.red),
-                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                      fontSize: 16, fontFamily: 'Vazir'),
+                                  textDirection: TextDirection.rtl,
                                 ),
+                                const SizedBox(height: 16),
                                 ElevatedButton(
-                                  onPressed: () => adProvider.fetchAds(),
-                                  child: const Text('تلاش مجدد'),
+                                  onPressed: () {
+                                    adProvider.fetchAds(
+                                      provinceId: adProvider.selectedProvinceId,
+                                      cityId: adProvider.selectedCityId,
+                                      adType: adProvider.adType,
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red),
+                                  child: const Text('تلاش مجدد',
+                                      style: TextStyle(fontFamily: 'Vazir')),
                                 ),
                               ],
                             ),
                           )
                         : adProvider.ads.isEmpty
-                            ? const Center(child: Text('هیچ آگهی یافت نشد'))
-                            : RefreshIndicator(
-                                onRefresh: () => adProvider.fetchAds(),
-                                child: ListView.builder(
-                                  itemCount: adProvider.ads.length,
-                                  itemBuilder: (context, index) {
-                                    final ad = adProvider.ads[index];
-                                    print(
-                                        'Rendering ad: ${ad.title} (ID: ${ad.adId})');
-                                    return AdCard(ad: ad);
-                                  },
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: const [
+                                    Icon(Icons.inbox,
+                                        size: 64, color: Colors.grey),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'هیچ آگهی یافت نشد',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'Vazir',
+                                      ),
+                                      textDirection: TextDirection.rtl,
+                                    ),
+                                  ],
                                 ),
-                              );
-              },
-            ),
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.all(8),
+                                itemCount: adProvider.ads.length,
+                                itemBuilder: (context, index) {
+                                  final ad = adProvider.ads[index];
+                                  return Card(
+                                    elevation: 4,
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: InkWell(
+                                      onTap: () {
+                                        print(
+                                            'Navigating to AdDetailsScreen for ad: ${ad.adId}');
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const AdDetailsScreen(),
+                                            settings:
+                                                RouteSettings(arguments: ad),
+                                          ),
+                                        );
+                                      },
+                                      child: Container(
+                                        height: 120,
+                                        padding: const EdgeInsets.all(4),
+                                        child: Row(
+                                          children: [
+                                            // Image (Right)
+                                            Container(
+                                              width: 100,
+                                              height: 100,
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                color: Colors.grey[200],
+                                              ),
+                                              child: ad.imageUrls.isNotEmpty
+                                                  ? ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8),
+                                                      child: CachedNetworkImage(
+                                                        imageUrl:
+                                                            ad.imageUrls.first,
+                                                        fit: BoxFit.cover,
+                                                        placeholder: (context,
+                                                                url) =>
+                                                            const Center(
+                                                                child:
+                                                                    CircularProgressIndicator()),
+                                                        errorWidget: (context,
+                                                                url, error) =>
+                                                            Icon(
+                                                          ad.adType ==
+                                                                  'REAL_ESTATE'
+                                                              ? Icons.home
+                                                              : Icons
+                                                                  .directions_car,
+                                                          size: 50,
+                                                          color: Colors.grey,
+                                                        ),
+                                                      ),
+                                                    )
+                                                  : Icon(
+                                                      ad.adType == 'REAL_ESTATE'
+                                                          ? Icons.home
+                                                          : Icons
+                                                              .directions_car,
+                                                      size: 50,
+                                                      color: Colors.grey,
+                                                    ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            // Text Info (Left)
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.start,
+                                                children: [
+                                                  // Title
+                                                  Flexible(
+                                                    child: Text(
+                                                      ad.title,
+                                                      style: const TextStyle(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontFamily: 'Vazir',
+                                                      ),
+                                                      textDirection:
+                                                          TextDirection.rtl,
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  // Ad Type
+                                                  Text(
+                                                    'نوع: ${ad.adType == 'REAL_ESTATE' ? 'املاک' : ad.adType == 'VEHICLE' ? 'خودرو' : 'سایر'}',
+                                                    style: const TextStyle(
+                                                      fontSize: 10,
+                                                      fontFamily: 'Vazir',
+                                                    ),
+                                                    textDirection:
+                                                        TextDirection.rtl,
+                                                  ),
+                                                  // Price
+                                                  Text(
+                                                    _getPriceText(ad),
+                                                    style: const TextStyle(
+                                                      fontSize: 10,
+                                                      fontFamily: 'Vazir',
+                                                      color: Colors.red,
+                                                    ),
+                                                    textDirection:
+                                                        TextDirection.rtl,
+                                                  ),
+                                                  // Details and Location
+                                                  Flexible(
+                                                    child: Text(
+                                                      '${_getDetailsText(ad)} | مکان: ${ad.provinceName ?? 'نامشخص'}، ${ad.cityName ?? 'نامشخص'}',
+                                                      style: const TextStyle(
+                                                        fontSize: 10,
+                                                        fontFamily: 'Vazir',
+                                                      ),
+                                                      textDirection: RegExp(
+                                                                  r'^[a-zA-Z\s]+$')
+                                                              .hasMatch(
+                                                                  ad.provinceName ??
+                                                                      '')
+                                                          ? TextDirection.ltr
+                                                          : TextDirection.rtl,
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+              ),
+            ],
+          );
+        },
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        selectedItemColor: Colors.red,
+        unselectedItemColor: Colors.grey[600],
+        backgroundColor: Colors.white,
+        elevation: 8,
+        type: BottomNavigationBarType.fixed,
+        selectedLabelStyle: const TextStyle(fontFamily: 'Vazir', fontSize: 12),
+        unselectedLabelStyle:
+            const TextStyle(fontFamily: 'Vazir', fontSize: 12),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'خانه',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.list_alt),
+            label: 'آگهی‌های من',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add_circle),
+            label: 'ثبت آگهی',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'پروفایل',
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
-        type: BottomNavigationBarType.fixed,
-        items: navItems
-            .asMap()
-            .entries
-            .map((entry) => BottomNavigationBarItem(
-                  icon: Icon(entry.value['icon']),
-                  label: entry.value['name'].toString(),
-                ))
-            .toList(),
-        onTap: (index) {
-          if (index == 0) {
-            adProvider.fetchAds(); // Re-fetch ads when "آگهی‌ها" is pressed
-          } else if (index == 1) {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const BookmarksScreen()));
-          } else if (index == 2) {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const PostAdScreen()));
-          } else if (index == 3) {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const ProfileScreen()));
-          }
-        },
-      ),
     );
+  }
+
+  String _getPriceText(Ad ad) {
+    if (ad.adType == 'REAL_ESTATE' && ad.totalPrice != null) {
+      return 'قیمت: ${ad.totalPrice} تومان';
+    } else if (ad.adType == 'VEHICLE' && ad.basePrice != null) {
+      return 'قیمت: ${ad.basePrice} تومان';
+    } else if (ad.price != null) {
+      return 'قیمت: ${ad.price} تومان';
+    }
+    return 'قیمت: توافقی';
+  }
+
+  String _getDetailsText(Ad ad) {
+    if (ad.adType == 'REAL_ESTATE' && ad.area != null) {
+      String details = 'متراژ: ${ad.area} متر';
+      if (ad.realEstateType != null) {
+        details += ' | نوع: ${ad.realEstateType == 'SALE' ? 'فروش' : 'اجاره'}';
+      }
+      return details;
+    } else if (ad.adType == 'VEHICLE' && ad.brand != null && ad.model != null) {
+      String details = 'خودرو: ${ad.brand} ${ad.model}';
+      if (ad.mileage != null) {
+        details += ' | کارکرد: ${ad.mileage} کیلومتر';
+      }
+      return details;
+    }
+    return 'جزئیات: نامشخص';
   }
 }

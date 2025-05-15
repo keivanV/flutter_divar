@@ -1,4 +1,3 @@
-
 import 'package:divar_app/screens/myAds_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -117,7 +116,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         );
                       } else {
-                        print('Cannot navigate to MyAdsScreen: phoneNumber is null');
+                        print(
+                            'Cannot navigate to MyAdsScreen: phoneNumber is null');
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                               content: Text('لطفاً ابتدا وارد شوید')),

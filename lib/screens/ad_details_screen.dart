@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../models/ad.dart';
+import '../providers/auth_provider.dart';
+import '../providers/bookmark_provider.dart';
 
 class AdDetailsScreen extends StatefulWidget {
   const AdDetailsScreen({super.key});
@@ -17,12 +20,17 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
     'قیمتش یه کم بالاست، میشه تخفیف گرفت؟',
   ];
   bool _isCommentsExpanded = false;
+  bool _isBookmarked = false;
+  bool _isBookmarkLoading = false;
   PageController? _pageController;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentImageIndex);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkBookmarkStatus();
+    });
   }
 
   @override
@@ -30,6 +38,87 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
     _commentController.dispose();
     _pageController?.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkBookmarkStatus() async {
+    final ad = ModalRoute.of(context)!.settings.arguments as Ad?;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final bookmarkProvider =
+        Provider.of<BookmarkProvider>(context, listen: false);
+
+    if (ad != null && authProvider.phoneNumber != null && ad.adId != null) {
+      setState(() {
+        _isBookmarkLoading = true;
+      });
+      try {
+        final isBookmarked = await bookmarkProvider.isBookmarked(
+          authProvider.phoneNumber!,
+          ad.adId!,
+        );
+        if (mounted) {
+          setState(() {
+            _isBookmarked = isBookmarked;
+            _isBookmarkLoading = false;
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _isBookmarkLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('خطا در بررسی نشان: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _toggleBookmark(Ad ad) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final bookmarkProvider =
+        Provider.of<BookmarkProvider>(context, listen: false);
+
+    if (authProvider.phoneNumber == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لطفاً ابتدا وارد شوید')),
+      );
+      Navigator.pushNamed(context, '/auth');
+      return;
+    }
+
+    if (ad.adId == null) return;
+
+    setState(() {
+      _isBookmarkLoading = true;
+    });
+
+    try {
+      await bookmarkProvider.toggleBookmark(
+          authProvider.phoneNumber!, ad.adId!);
+      if (mounted) {
+        setState(() {
+          _isBookmarked = !_isBookmarked;
+          _isBookmarkLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _isBookmarked ? 'به نشان‌ها اضافه شد' : 'از نشان‌ها حذف شد',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isBookmarkLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطا: $e')),
+        );
+      }
+    }
   }
 
   void _nextImage(int imageCount) {
@@ -61,10 +150,21 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final ad = ModalRoute.of(context)!.settings.arguments as Ad;
-    print('Ad data: ${ad.toJson()}'); // Debug: Log ad data
+    print('Ad data: ${ad.toJson()}');
     final numberFormatter = NumberFormat('#,###', 'fa_IR');
+    final authProvider = Provider.of<AuthProvider>(context);
+    final phoneNumber = authProvider.phoneNumber;
 
-    // Use basePrice for VEHICLE ads, fallback to price for others
+    if (phoneNumber == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('لطفاً ابتدا وارد شوید')),
+        );
+        Navigator.pushNamedAndRemoveUntil(context, '/auth', (route) => false);
+      });
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     final formattedPrice = ad.adType == 'VEHICLE'
         ? (ad.basePrice != null && ad.basePrice! > 0
             ? '${numberFormatter.format(ad.basePrice!)} تومان'
@@ -100,6 +200,27 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
         backgroundColor: Colors.red,
         elevation: 0,
         centerTitle: true,
+        actions: [
+          _isBookmarkLoading
+              ? const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  ),
+                )
+              : IconButton(
+                  icon: Icon(
+                    _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                    color: _isBookmarked ? Colors.yellow : Colors.white,
+                  ),
+                  onPressed: () => _toggleBookmark(ad),
+                ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(

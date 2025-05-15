@@ -1,7 +1,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { getAds, createAd, updateAd, deleteAd } = require('../controllers/adController');
+const { getAds, getAdById, createAd, updateAd, deleteAd } = require('../controllers/adController');
 const multer = require('multer');
 const path = require('path');
 
@@ -39,6 +39,7 @@ const upload = multer({
 
 // Routes
 router.get('/', getAds);
+router.get('/:ad_id', getAdById);
 router.post('/', upload, createAd);
 router.put('/:ad_id', updateAd);
 router.delete('/:ad_id', deleteAd);

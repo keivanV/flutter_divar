@@ -1,5 +1,79 @@
 const db = require('../config/db');
 
+
+
+// Get ad by ID
+async function getAdById(req, res) {
+  try {
+    const { ad_id } = req.params;
+    const query = `
+      SELECT 
+        a.ad_id, a.title, a.description, a.ad_type, a.price, a.province_id, a.city_id, 
+        a.owner_phone_number, a.created_at, a.status,
+        p.name AS province_name, c.name AS city_name
+      FROM advertisements a
+      LEFT JOIN provinces p ON a.province_id = p.province_id
+      LEFT JOIN cities c ON a.city_id = c.city_id
+      WHERE a.ad_id = ?
+    `;
+    const params = [ad_id];
+
+    const adResult = await db.raw(query, params);
+    const ads = adResult[0];
+
+    if (ads.length === 0) {
+      return res.status(404).json({ message: 'آگهی یافت نشد' });
+    }
+
+    const ad = ads[0];
+
+    const imagesQuery = `
+      SELECT image_url 
+      FROM ad_images 
+      WHERE ad_id = ?
+    `;
+    const imagesResult = await db.raw(imagesQuery, [ad.ad_id]);
+    const images = imagesResult[0].map(row => row.image_url).filter(url => url != null);
+
+    let specificDetails = {};
+    if (ad.ad_type === 'REAL_ESTATE') {
+      const realEstateResult = await db.raw(
+        `SELECT real_estate_type, area, construction_year, rooms, total_price, 
+                price_per_meter, has_parking, has_storage, has_balcony, deposit, 
+                monthly_rent, floor
+         FROM real_estate_ads WHERE ad_id = ?`,
+        [ad.ad_id]
+      );
+      specificDetails = realEstateResult[0][0] || {};
+      if (specificDetails.real_estate_type === 'SALE') {
+        specificDetails.deposit = null;
+        specificDetails.monthly_rent = null;
+      }
+    } else if (ad.ad_type === 'VEHICLE') {
+      const vehicleResult = await db.raw(
+        `SELECT brand, model, mileage, color, gearbox, base_price, 
+                engine_status, chassis_status, body_status
+         FROM vehicle_ads WHERE ad_id = ?`,
+        [ad.ad_id]
+      );
+      specificDetails = vehicleResult[0][0] || {};
+    }
+
+    const result = {
+      ...ad,
+      images,
+      ...specificDetails,
+    };
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching ad by ID:', error);
+    res.status(500).json({ message: `خطا در دریافت آگهی: ${error.message}` });
+  }
+}
+
+
+
 // Get all ads
 async function getAds(req, res) {
   try {
@@ -355,6 +429,7 @@ async function deleteAd(req, res) {
 
 module.exports = {
   getAds,
+  getAdById,
   createAd,
   updateAd,
   deleteAd,

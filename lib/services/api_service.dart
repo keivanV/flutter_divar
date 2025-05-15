@@ -6,6 +6,8 @@ import '../constants.dart';
 import '../models/ad.dart';
 
 class ApiService {
+  static const String apiBaseUrl = 'http://localhost:5000/api';
+
   Future<List<Ad>> fetchAds({
     String? adType,
     int? provinceId,
@@ -60,7 +62,8 @@ class ApiService {
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to update ad: ${response.body}');
+      throw Exception(
+          'Failed to update ad: ${response.statusCode} ${response.body}');
     }
   }
 
@@ -87,12 +90,80 @@ class ApiService {
     }
   }
 
+  Future<List<Ad>> fetchBookmarks(String phoneNumber) async {
+    final uri = Uri.parse('$apiBaseUrl/bookmarks/$phoneNumber');
+    print('Fetching bookmarks from: $uri');
+    final response = await http.get(uri);
+    print('Fetch bookmarks status: ${response.statusCode}');
+    print('Fetch bookmarks body: ${response.body}');
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((json) => Ad.fromJson(json)).toList();
+    } else {
+      throw Exception(
+          'Failed to load bookmarks: ${response.statusCode} ${response.body}');
+    }
+  }
+
+  Future<Ad> fetchAdById(int adId) async {
+    final uri = Uri.parse('$apiBaseUrl/ads/$adId');
+    print('Fetching ad from: $uri');
+    final response = await http.get(uri);
+    print('Fetch ad status: ${response.statusCode}');
+    print('Fetch ad body: ${response.body}');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return Ad.fromJson(data);
+    } else {
+      throw Exception(
+          'Failed to load ad: ${response.statusCode} ${response.body}');
+    }
+  }
+
+  Future<int> addBookmark(String phoneNumber, int adId) async {
+    final uri = Uri.parse('$apiBaseUrl/bookmarks');
+    final body = jsonEncode({'user_phone_number': phoneNumber, 'ad_id': adId});
+    print('Adding bookmark to: $uri with body: $body');
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+    print('Add bookmark status: ${response.statusCode}');
+    print('Add bookmark body: ${response.body}');
+    if (response.statusCode == 201) {
+      final data = jsonDecode(response.body);
+      print('Parsed bookmark response: $data');
+      final bookmarkId = data['bookmark_id'] as int?;
+      if (bookmarkId == null) {
+        throw Exception('Bookmark ID not found in response');
+      }
+      return bookmarkId;
+    } else {
+      throw Exception(
+          'Failed to add bookmark: ${response.statusCode} ${response.body}');
+    }
+  }
+
+  Future<void> removeBookmark(int bookmarkId) async {
+    final uri = Uri.parse('$apiBaseUrl/bookmarks/$bookmarkId');
+    print('Removing bookmark from: $uri');
+    final response = await http.delete(uri);
+    print('Remove bookmark status: ${response.statusCode}');
+    print('Remove bookmark body: ${response.body}');
+    if (response.statusCode != 200) {
+      throw Exception(
+          'Failed to remove bookmark: ${response.statusCode} ${response.body}');
+    }
+  }
+
   Future<void> deleteAd(int adId) async {
     final uri = Uri.parse('$apiBaseUrl/ads/$adId');
     final response = await http.delete(uri);
 
     if (response.statusCode != 200) {
-      throw Exception('Failed to delete ad: ${response.body}');
+      throw Exception(
+          'Failed to delete ad: ${response.statusCode} ${response.body}');
     }
   }
 
@@ -167,7 +238,6 @@ class ApiService {
         if (!['jpg', 'jpeg', 'png', 'gif'].contains(fileExtension)) {
           throw Exception('فقط تصاویر JPEG، PNG و GIF مجاز هستند');
         }
-        // Standardize MIME type
         final mimeType = fileExtension == 'jpg' || fileExtension == 'jpeg'
             ? 'image/jpeg'
             : fileExtension == 'png'
@@ -183,8 +253,6 @@ class ApiService {
             'Added image: ${image.path}, extension: $fileExtension, MIME: $mimeType');
       }
       print('Request files: ${request.files.map((f) => f.filename).toList()}');
-      print('Request headers: ${request.headers}');
-      print('Content-Type: ${request.headers['content-type']}');
 
       final response = await request.send();
       final responseBody = await response.stream.bytesToString();

@@ -1,36 +1,80 @@
-// Bookmark controller
-const { body, validationResult } = require('express-validator');
-const bookmarkModel = require('../models/bookmarkModel');
 
-const bookmarkController = {
-  addBookmark: [
-    body('user_phone_number').isLength({ min: 11, max: 11 }).isNumeric().withMessage('User phone number must be 11 digits'),
-    body('ad_id').isInt().withMessage('Ad ID must be an integer'),
-    async (req, res, next) => {
-      try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-          return res.status(400).json({ errors: errors.array() });
-        }
+const mysql = require('mysql2/promise');
 
-        const bookmarkData = req.body;
-        const result = await bookmarkModel.addBookmark(bookmarkData);
-        res.status(201).json({ message: 'Bookmark added successfully', insertId: result.insertId });
-      } catch (error) {
-        next(error);
-      }
+// MySQL connection pool
+const pool = mysql.createPool({
+  host: 'localhost',
+  user: 'root',
+  password: 'root',
+  database: 'divar_app',
+});
+
+exports.addBookmark = async (req, res, next) => {
+  try {
+    const { user_phone_number, ad_id } = req.body;
+    if (!user_phone_number || !ad_id) {
+      return res.status(400).json({ error: 'user_phone_number and ad_id are required' });
     }
-  ],
-
-  getBookmarks: async (req, res, next) => {
-    try {
-      const { user_phone_number } = req.params;
-      const bookmarks = await bookmarkModel.getBookmarks(user_phone_number);
-      res.json(bookmarks);
-    } catch (error) {
-      next(error);
+    console.log(`Adding bookmark for user: ${user_phone_number}, ad_id: ${ad_id}`);
+    
+    // Check for duplicate bookmark
+    const [existing] = await pool.query(
+      'SELECT bookmark_id FROM bookmarks WHERE user_phone_number = ? AND ad_id = ?',
+      [user_phone_number, ad_id]
+    );
+    if (existing.length > 0) {
+      return res.status(400).json({ error: 'Bookmark already exists' });
     }
+    
+    const [result] = await pool.query(
+      'INSERT INTO bookmarks (user_phone_number, ad_id) VALUES (?, ?)',
+      [user_phone_number, ad_id]
+    );
+    res.status(201).json({ message: 'Bookmark added', bookmark_id: result.insertId });
+  } catch (err) {
+    console.error('Error adding bookmark:', err);
+    next(err);
   }
 };
 
-module.exports = bookmarkController;
+exports.getBookmarks = async (req, res, next) => {
+  try {
+    const { user_phone_number } = req.params;
+    console.log(`Fetching bookmarks for user: ${user_phone_number}`);
+    const [bookmarks] = await pool.query(
+      `SELECT b.bookmark_id, a.*, GROUP_CONCAT(i.image_url) as images
+       FROM advertisements a
+       INNER JOIN bookmarks b ON a.ad_id = b.ad_id
+       LEFT JOIN ad_images i ON a.ad_id = i.ad_id
+       WHERE b.user_phone_number = ?
+       GROUP BY b.bookmark_id, a.ad_id`,
+      [user_phone_number]
+    );
+    res.json(bookmarks.map(ad => ({
+      ...ad,
+      images: ad.images ? ad.images.split(',') : [],
+      bookmark_id: ad.bookmark_id,
+    })));
+  } catch (err) {
+    console.error('Error fetching bookmarks:', err);
+    next(err);
+  }
+};
+
+exports.deleteBookmark = async (req, res, next) => {
+  try {
+    const { bookmarkId } = req.params;
+    console.log(`Deleting bookmark_id: ${bookmarkId}`);
+    const [result] = await pool.query(
+      'DELETE FROM bookmarks WHERE bookmark_id = ?',
+      [bookmarkId]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Bookmark not found' });
+    }
+    res.json({ message: 'Bookmark removed' });
+  } catch (err) {
+    console.error('Error deleting bookmark:', err);
+    next(err);
+  }
+};

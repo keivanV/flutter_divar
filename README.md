@@ -30,22 +30,16 @@ A full-stack Flutter application for displaying detailed information about adver
 ## 📸 Screenshots
 
 <div align="center">
-  <h4>🏠 Home Screen</h4>
+  <h4>🏠 Project Images</h4>
   <img src="project_images/screen1.png" alt="Home Screen" width="300"/>
-
-  <h4>📄 Ad Details</h4>
   <img src="project_images/screen2.png" alt="Ad Details" width="300"/>
-
-  <h4>⭐ Bookmarked Ads</h4>
   <img src="project_images/screen3.png" alt="Bookmarks" width="300"/>
-
-  <h5> Another Images </h5>
   <img src="project_images/screen4.png" alt="Bookmarks" width="300"/>
   <img src="project_images/screen5.png" alt="Bookmarks" width="300"/>
   <img src="project_images/screen6.png" alt="Bookmarks" width="300"/>
   <img src="project_images/screen7.png" alt="Bookmarks" width="300"/>
   <img src="project_images/screen8.png" alt="Bookmarks" width="300"/>
-    <img src="project_images/screen9.png" alt="Bookmarks" width="300"/>
+  <img src="project_images/screen9.png" alt="Bookmarks" width="300"/>
   <img src="project_images/screen10.png" alt="Bookmarks" width="300"/>
 
 

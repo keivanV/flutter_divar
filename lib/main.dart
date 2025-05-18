@@ -1,5 +1,8 @@
+import 'package:divar_app/providers/admin_provider.dart';
 import 'package:divar_app/providers/comment_provider.dart';
 import 'package:divar_app/screens/ad_details_screen.dart';
+import 'package:divar_app/screens/admin_dashboard_screen.dart';
+import 'package:divar_app/screens/admin_login_screen.dart';
 import 'package:divar_app/screens/location_screen.dart';
 import 'package:divar_app/screens/myAds_screen.dart';
 import 'package:divar_app/screens/post_ad_screen.dart';
@@ -28,7 +31,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AdProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()..initialize()),
         ChangeNotifierProvider(create: (_) => BookmarkProvider()),
-        ChangeNotifierProvider(create: (_) => CommentProvider()), // Add this
+        ChangeNotifierProvider(create: (_) => CommentProvider()),
+        ChangeNotifierProvider(create: (_) => AdminProvider()),
       ],
       child: Builder(
         builder: (context) {
@@ -78,6 +82,8 @@ class MyApp extends StatelessWidget {
                       ),
                   '/location': (context) => const LocationScreen(),
                   '/post_ad': (context) => const PostAdScreen(),
+                  '/admin_login': (context) => const AdminLoginScreen(),
+                  '/admin_dashboard': (context) => const AdminDashboardScreen(),
                 },
               );
             },

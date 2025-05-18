@@ -4,14 +4,35 @@ import '../services/api_service.dart';
 
 class AuthProvider with ChangeNotifier {
   String? _phoneNumber;
+  String? _adminToken;
   final ApiService _apiService = ApiService();
-
+  bool _isLoading = false;
+  int? _adminId;
+  String? _errorMessage;
   String? get phoneNumber => _phoneNumber;
-
-  // کلید برای ذخیره شماره موبایل در shared_preferences
+  String? get adminToken => _adminToken;
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
+  int? get adminId => _adminId;
   static const String _phoneNumberKey = 'phone_number';
 
-  // بررسی وضعیت ورود هنگام راه‌اندازی اپلیکیشن
+  Future<void> adminLogin(String username, String password) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      final adminId = await _apiService.adminLogin(username, password);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('admin_id', adminId);
+      _adminId = adminId;
+    } catch (e) {
+      _errorMessage = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> initialize() async {
     print('Starting AuthProvider.initialize');
     try {
@@ -78,7 +99,6 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> logout() async {
     _phoneNumber = null;
-    // پاک کردن شماره موبایل از shared_preferences
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_phoneNumberKey);
     print('Logged out, cleared stored phone number');

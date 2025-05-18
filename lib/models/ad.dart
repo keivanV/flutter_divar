@@ -1,4 +1,3 @@
-
 class Ad {
   int? bookmarkId; // Single, settable field
   final int adId;
@@ -89,7 +88,8 @@ class Ad {
       provinceId: json['province_id'] as int? ?? 0,
       cityId: json['city_id'] as int? ?? 0,
       ownerPhoneNumber: json['owner_phone_number'] as String? ?? '',
-      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
+      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
+          DateTime.now(),
       status: json['status'] as String? ?? 'UNKNOWN',
       provinceName: json['province_name'] as String?,
       cityName: json['city_name'] as String?,

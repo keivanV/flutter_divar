@@ -20,6 +20,7 @@ dependencies:
   http_parser: ^4.1.2
   cached_network_image: ^3.3.1
   flutter_swiper_null_safety: ^1.0.2  
+  jwt_decoder: ^2.0.1
 
 dev_dependencies:
   flutter_test:

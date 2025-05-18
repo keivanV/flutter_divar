@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const errorHandler = require('./middleware/errorHandler');
 const userRoutes = require('./routes/userRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 const adRoutes = require('./routes/adRoutes');
 const bookmarkRoutes = require('./routes/bookmarkRoutes');
 const locationRoutes = require('./routes/locationRoutes');
@@ -55,7 +56,7 @@ if (!fs.existsSync(uploadDir)) {
 
 // ارائه فایل‌های استاتیک از پوشه uploads
 app.use('/uploads', express.static('uploads'));
-
+app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/ads', adRoutes);
 app.use('/api/bookmarks', bookmarkRoutes);

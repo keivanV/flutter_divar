@@ -6,7 +6,7 @@ class CommentProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
   List<Comment> _comments = [];
   List<Comment> _userComments = [];
-  List<Comment> get userComments => _userComments; // Added getter
+  List<Comment> get userComments => _userComments;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -14,18 +14,40 @@ class CommentProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  Future<void> fetchComments(int adId) async {
+  // Fetch comments for a specific ad
+  Future<void> fetchCommentsByAdId(int adId) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      _comments = await _apiService.getComments(adId);
+      final response = await _apiService.getCommentsByAdId(adId);
+      _comments = response.map((json) => Comment.fromJson(json)).toList();
       _isLoading = false;
       notifyListeners();
     } catch (e) {
       _isLoading = false;
-      _errorMessage = e.toString();
+      _errorMessage = 'خطا در دریافت کامنت‌ها: $e';
+      notifyListeners();
+    }
+  }
+
+  // Fetch all comments or comments for a specific ad
+  Future<void> fetchComments(int? adId, {int offset = 0}) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      _comments = await _apiService.getComments(adId, offset: offset);
+      print(
+          'fetchComments: Loaded ${_comments.length} comments for adId: $adId');
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = 'خطا در دریافت کامنت‌ها: $e';
+      print('fetchComments error: $e');
       notifyListeners();
     }
   }
@@ -41,7 +63,7 @@ class CommentProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _isLoading = false;
-      _errorMessage = e.toString();
+      _errorMessage = 'خطا در دریافت کامنت‌های کاربر: $e';
       notifyListeners();
     }
   }
@@ -61,12 +83,13 @@ class CommentProvider with ChangeNotifier {
         userPhoneNumber: userPhoneNumber,
         content: content,
       );
-      await fetchComments(adId); // Refresh comments after posting
+      // Correct: adId is int, fetchComments accepts int?
+      await fetchComments(adId, offset: 0);
       _isLoading = false;
       notifyListeners();
     } catch (e) {
       _isLoading = false;
-      _errorMessage = e.toString();
+      _errorMessage = 'خطا در ارسال کامنت: $e';
       notifyListeners();
     }
   }

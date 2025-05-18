@@ -11,6 +11,13 @@ import '../models/ad.dart';
 class ApiService {
   static const String apiBaseUrl = 'http://localhost:5000/api';
 
+  Map<String, String> _getHeaders({String? adminId}) {
+    return {
+      'Content-Type': 'application/json',
+      if (adminId != null) 'x-admin-id': adminId,
+    };
+  }
+
   Future<List<Ad>> fetchAds({
     String? adType,
     int? provinceId,
@@ -67,6 +74,41 @@ class ApiService {
     if (response.statusCode != 200) {
       throw Exception(
           'Failed to update ad: ${response.statusCode} ${response.body}');
+    }
+  }
+
+  Future<List<dynamic>> getCommentsByAdId(int adId, {String? adminId}) async {
+    final response = await http.get(
+      Uri.parse('$apiBaseUrl/admin/ads/$adId/comments'),
+      headers: _getHeaders(adminId: adminId),
+    );
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('خطا در دریافت کامنت‌های آگهی: ${response.statusCode}');
+    }
+  }
+
+  Future<int> adminLogin(String username, String password) async {
+    try {
+      final uri = Uri.parse('$apiBaseUrl/admin/login');
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'username': username, 'password': password}),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return data['adminId'];
+        }
+        throw Exception('لاگین ناموفق');
+      } else {
+        throw Exception(
+            'خطا در لاگین ادمین: ${jsonDecode(response.body)['message']}');
+      }
+    } catch (e) {
+      throw Exception('خطا در لاگین ادمین: $e');
     }
   }
 
@@ -339,28 +381,23 @@ class ApiService {
     }
   }
 
-  Future<List<Comment>> getComments(int adId) async {
-    try {
-      final uri = Uri.parse('$apiBaseUrl/ads/$adId/comments');
-      print('Fetching comments from: $uri');
-      final response = await http.get(
-        uri,
-        headers: {'Accept': 'application/json; charset=utf-8'},
-      );
-
-      print('Get comments status: ${response.statusCode}');
-      print('Get comments body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => Comment.fromJson(json)).toList();
-      } else {
-        throw Exception(
-            'Failed to load comments: ${response.statusCode} ${response.body}');
-      }
-    } catch (e) {
-      print('Error fetching comments: $e');
-      throw Exception('Failed to fetch comments: $e');
+  Future<List<Comment>> getComments(int? adId, {int offset = 0}) async {
+    final uri = adId == null
+        ? Uri.parse('$apiBaseUrl/admin/comments?offset=$offset')
+        : Uri.parse('$apiBaseUrl/admin/ads/$adId/comments?offset=$offset');
+    final response = await http.get(
+      uri,
+      headers: _getHeaders(adminId: '1'),
+    );
+    print('getComments URL: $uri');
+    print('getComments status: ${response.statusCode}');
+    print('getComments body: ${response.body}');
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      return data.map((json) => Comment.fromJson(json)).toList();
+    } else {
+      throw Exception(
+          'خطا در دریافت کامنت‌ها: ${response.statusCode} ${response.body}');
     }
   }
 

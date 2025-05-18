@@ -17,9 +17,12 @@ class _AuthScreenState extends State<AuthScreen>
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _nicknameController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
   int? _provinceId;
   int? _cityId;
   bool _isLoginTab = true;
+  bool _isAdminMode = false;
   bool _isLoading = false;
   String? _errorMessage;
   late AnimationController _animationController;
@@ -65,6 +68,8 @@ class _AuthScreenState extends State<AuthScreen>
     _firstNameController.dispose();
     _lastNameController.dispose();
     _nicknameController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -79,11 +84,17 @@ class _AuthScreenState extends State<AuthScreen>
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     try {
-      if (_isLoginTab) {
-        // ورود
+      if (_isAdminMode) {
+        // Admin login
+        await authProvider.adminLogin(
+            _usernameController.text, _passwordController.text);
+        Navigator.pushReplacementNamed(context, '/admin_dashboard');
+      } else if (_isLoginTab) {
+        // User login
         await authProvider.login(_phoneController.text);
+        Navigator.pushReplacementNamed(context, '/home');
       } else {
-        // ثبت‌نام
+        // User registration
         await authProvider.register({
           'phone_number': _phoneController.text,
           'first_name': _firstNameController.text,
@@ -92,9 +103,8 @@ class _AuthScreenState extends State<AuthScreen>
           'province_id': _provinceId,
           'city_id': _cityId,
         });
+        Navigator.pushReplacementNamed(context, '/home');
       }
-      // هدایت به صفحه اصلی
-      Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
       setState(() {
         _errorMessage = e.toString().replaceFirst('Exception: ', '');
@@ -109,6 +119,17 @@ class _AuthScreenState extends State<AuthScreen>
   void _switchToRegister() {
     setState(() {
       _isLoginTab = false;
+      _isAdminMode = false;
+      _errorMessage = null;
+      _animationController.reset();
+      _animationController.forward();
+    });
+  }
+
+  void _toggleAdminMode() {
+    setState(() {
+      _isAdminMode = !_isAdminMode;
+      _isLoginTab = true; // Reset to login tab when switching modes
       _errorMessage = null;
       _animationController.reset();
       _animationController.forward();
@@ -129,9 +150,13 @@ class _AuthScreenState extends State<AuthScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // عنوان
+                    // Title
                     Text(
-                      _isLoginTab ? 'ورود به دیوار' : 'ثبت‌نام در دیوار',
+                      _isAdminMode
+                          ? 'ورود ادمین'
+                          : _isLoginTab
+                              ? 'ورود به دیوار'
+                              : 'ثبت‌نام در دیوار',
                       style:
                           Theme.of(context).textTheme.headlineMedium?.copyWith(
                                 color: Theme.of(context).primaryColor,
@@ -139,46 +164,13 @@ class _AuthScreenState extends State<AuthScreen>
                               ),
                     ),
                     const SizedBox(height: 24),
-                    // فیلد شماره موبایل
-                    TextFormField(
-                      controller: _phoneController,
-                      decoration: const InputDecoration(
-                        labelText: 'شماره موبایل',
-                        prefixIcon: Icon(Icons.phone, color: Colors.red),
-                        enabledBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Colors.red),
-                        ),
-                        focusedBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Colors.red, width: 2),
-                        ),
-                        errorBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Colors.redAccent),
-                        ),
-                        focusedErrorBorder: UnderlineInputBorder(
-                          borderSide:
-                              BorderSide(color: Colors.redAccent, width: 2),
-                        ),
-                      ),
-                      keyboardType: TextInputType.phone,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'لطفاً شماره موبایل را وارد کنید';
-                        }
-                        if (!RegExp(r'^09\d{9}$').hasMatch(value)) {
-                          return 'شماره موبایل باید 11 رقم و با 09 شروع شود';
-                        }
-                        return null;
-                      },
-                    ),
-                    if (!_isLoginTab) ...[
-                      const SizedBox(height: 16),
-                      // فیلد نام
+                    // Admin login fields
+                    if (_isAdminMode) ...[
                       TextFormField(
-                        controller: _firstNameController,
+                        controller: _usernameController,
                         decoration: const InputDecoration(
-                          labelText: 'نام',
-                          prefixIcon:
-                              Icon(Icons.person, color: Colors.red),
+                          labelText: 'نام کاربری',
+                          prefixIcon: Icon(Icons.person, color: Colors.red),
                           enabledBorder: UnderlineInputBorder(
                             borderSide: BorderSide(color: Colors.red),
                           ),
@@ -193,21 +185,20 @@ class _AuthScreenState extends State<AuthScreen>
                                 BorderSide(color: Colors.redAccent, width: 2),
                           ),
                         ),
+                        textDirection: TextDirection.ltr,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'لطفاً نام را وارد کنید';
+                            return 'لطفاً نام کاربری را وارد کنید';
                           }
                           return null;
                         },
                       ),
                       const SizedBox(height: 16),
-                      // فیلد نام خانوادگی
                       TextFormField(
-                        controller: _lastNameController,
+                        controller: _passwordController,
                         decoration: const InputDecoration(
-                          labelText: 'نام خانوادگی',
-                          prefixIcon:
-                              Icon(Icons.person, color: Colors.red),
+                          labelText: 'رمز عبور',
+                          prefixIcon: Icon(Icons.lock, color: Colors.red),
                           enabledBorder: UnderlineInputBorder(
                             borderSide: BorderSide(color: Colors.red),
                           ),
@@ -222,21 +213,22 @@ class _AuthScreenState extends State<AuthScreen>
                                 BorderSide(color: Colors.redAccent, width: 2),
                           ),
                         ),
+                        obscureText: true,
+                        textDirection: TextDirection.ltr,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'لطفاً نام خانوادگی را وارد کنید';
+                            return 'لطفاً رمز عبور را وارد کنید';
                           }
                           return null;
                         },
                       ),
-                      const SizedBox(height: 16),
-                      // فیلد نام مستعار
+                    ] else ...[
+                      // User login/registration fields
                       TextFormField(
-                        controller: _nicknameController,
+                        controller: _phoneController,
                         decoration: const InputDecoration(
-                          labelText: 'نام مستعار',
-                          prefixIcon:
-                              Icon(Icons.badge, color: Colors.red),
+                          labelText: 'شماره موبایل',
+                          prefixIcon: Icon(Icons.phone, color: Colors.red),
                           enabledBorder: UnderlineInputBorder(
                             borderSide: BorderSide(color: Colors.red),
                           ),
@@ -251,99 +243,207 @@ class _AuthScreenState extends State<AuthScreen>
                                 BorderSide(color: Colors.redAccent, width: 2),
                           ),
                         ),
+                        keyboardType: TextInputType.phone,
+                        textDirection: TextDirection.ltr,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'لطفاً نام مستعار را وارد کنید';
+                            return 'لطفاً شماره موبایل را وارد کنید';
+                          }
+                          if (!RegExp(r'^09\d{9}$').hasMatch(value)) {
+                            return 'شماره موبایل باید 11 رقم و با 09 شروع شود';
                           }
                           return null;
                         },
                       ),
-                      const SizedBox(height: 16),
-                      // انتخاب استان
-                      DropdownButtonFormField<int>(
-                        decoration: const InputDecoration(
-                          labelText: 'استان',
-                          prefixIcon: Icon(Icons.location_city,
-                              color: Colors.red),
-                          enabledBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.red),
+                      if (!_isLoginTab) ...[
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _firstNameController,
+                          decoration: const InputDecoration(
+                            labelText: 'نام',
+                            prefixIcon: Icon(Icons.person, color: Colors.red),
+                            enabledBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.red),
+                            ),
+                            focusedBorder: UnderlineInputBorder(
+                              borderSide:
+                                  BorderSide(color: Colors.red, width: 2),
+                            ),
+                            errorBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.redAccent),
+                            ),
+                            focusedErrorBorder: UnderlineInputBorder(
+                              borderSide:
+                                  BorderSide(color: Colors.redAccent, width: 2),
+                            ),
                           ),
-                          focusedBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.red, width: 2),
-                          ),
-                          errorBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.redAccent),
-                          ),
-                          focusedErrorBorder: UnderlineInputBorder(
-                            borderSide:
-                                BorderSide(color: Colors.redAccent, width: 2),
-                          ),
+                          textDirection: TextDirection.rtl,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'لطفاً نام را وارد کنید';
+                            }
+                            return null;
+                          },
                         ),
-                        value: _provinceId,
-                        items: provinces
-                            .map((province) => DropdownMenuItem<int>(
-                                  value: province['id'] as int,
-                                  child: Text(province['name'] as String),
-                                ))
-                            .toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _provinceId = value;
-                            _cityId = null; // ریست شهر
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null) {
-                            return 'لطفاً استان را انتخاب کنید';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      // انتخاب شهر
-                      DropdownButtonFormField<int>(
-                        decoration: const InputDecoration(
-                          labelText: 'شهر',
-                          prefixIcon:
-                              Icon(Icons.location_on, color: Colors.red),
-                          enabledBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.red),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _lastNameController,
+                          decoration: const InputDecoration(
+                            labelText: 'نام خانوادگی',
+                            prefixIcon: Icon(Icons.person, color: Colors.red),
+                            enabledBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.red),
+                            ),
+                            focusedBorder: UnderlineInputBorder(
+                              borderSide:
+                                  BorderSide(color: Colors.red, width: 2),
+                            ),
+                            errorBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.redAccent),
+                            ),
+                            focusedErrorBorder: UnderlineInputBorder(
+                              borderSide:
+                                  BorderSide(color: Colors.redAccent, width: 2),
+                            ),
                           ),
-                          focusedBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.red, width: 2),
-                          ),
-                          errorBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.redAccent),
-                          ),
-                          focusedErrorBorder: UnderlineInputBorder(
-                            borderSide:
-                                BorderSide(color: Colors.redAccent, width: 2),
-                          ),
+                          textDirection: TextDirection.rtl,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'لطفاً نام خانوادگی را وارد کنید';
+                            }
+                            return null;
+                          },
                         ),
-                        value: _cityId,
-                        items: cities
-                            .where((city) => city['province_id'] == _provinceId)
-                            .map((city) => DropdownMenuItem<int>(
-                                  value: city['id'] as int,
-                                  child: Text(city['name'] as String),
-                                ))
-                            .toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _cityId = value;
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null) {
-                            return 'لطفاً شهر را انتخاب کنید';
-                          }
-                          return null;
-                        },
-                      ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _nicknameController,
+                          decoration: const InputDecoration(
+                            labelText: 'نام مستعار',
+                            prefixIcon: Icon(Icons.badge, color: Colors.red),
+                            enabledBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.red),
+                            ),
+                            focusedBorder: UnderlineInputBorder(
+                              borderSide:
+                                  BorderSide(color: Colors.red, width: 2),
+                            ),
+                            errorBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.redAccent),
+                            ),
+                            focusedErrorBorder: UnderlineInputBorder(
+                              borderSide:
+                                  BorderSide(color: Colors.redAccent, width: 2),
+                            ),
+                          ),
+                          textDirection: TextDirection.rtl,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'لطفاً نام مستعار را وارد کنید';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<int>(
+                          decoration: const InputDecoration(
+                            labelText: 'استان',
+                            prefixIcon:
+                                Icon(Icons.location_city, color: Colors.red),
+                            enabledBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.red),
+                            ),
+                            focusedBorder: UnderlineInputBorder(
+                              borderSide:
+                                  BorderSide(color: Colors.red, width: 2),
+                            ),
+                            errorBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.redAccent),
+                            ),
+                            focusedErrorBorder: UnderlineInputBorder(
+                              borderSide:
+                                  BorderSide(color: Colors.redAccent, width: 2),
+                            ),
+                          ),
+                          value: _provinceId,
+                          items: provinces
+                              .map((province) => DropdownMenuItem<int>(
+                                    value: province['id'] as int,
+                                    child: Text(province['name'] as String),
+                                  ))
+                              .toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _provinceId = value;
+                              _cityId = null;
+                            });
+                          },
+                          validator: (value) {
+                            if (value == null) {
+                              return 'لطفاً استان را انتخاب کنید';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<int>(
+                          decoration: const InputDecoration(
+                            labelText: 'شهر',
+                            prefixIcon:
+                                Icon(Icons.location_on, color: Colors.red),
+                            enabledBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.red),
+                            ),
+                            focusedBorder: UnderlineInputBorder(
+                              borderSide:
+                                  BorderSide(color: Colors.red, width: 2),
+                            ),
+                            errorBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.redAccent),
+                            ),
+                            focusedErrorBorder: UnderlineInputBorder(
+                              borderSide:
+                                  BorderSide(color: Colors.redAccent, width: 2),
+                            ),
+                          ),
+                          value: _cityId,
+                          items: cities
+                              .where(
+                                  (city) => city['province_id'] == _provinceId)
+                              .map((city) => DropdownMenuItem<int>(
+                                    value: city['id'] as int,
+                                    child: Text(city['name'] as String),
+                                  ))
+                              .toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _cityId = value;
+                            });
+                          },
+                          validator: (value) {
+                            if (value == null) {
+                              return 'لطفاً شهر را انتخاب کنید';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
                     ],
                     const SizedBox(height: 24),
-                    // پیام حساب کاربری و دکمه ثبت‌نام (همیشه نمایش داده می‌شود در تب ورود)
-                    if (_isLoginTab)
+                    // Toggle between user and admin login
+                    TextButton(
+                      onPressed: _toggleAdminMode,
+                      child: Text(
+                        _isAdminMode
+                            ? 'ورود به عنوان کاربر'
+                            : 'ورود به عنوان ادمین',
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    // User registration link
+                    if (!_isAdminMode && _isLoginTab)
                       Column(
                         children: [
                           const Text(
@@ -363,7 +463,6 @@ class _AuthScreenState extends State<AuthScreen>
                           ),
                         ],
                       ),
-                    // نمایش خطاهای دیگر
                     if (_errorMessage != null &&
                         _errorMessage != 'حساب کاربری ندارید؟')
                       Text(
@@ -372,7 +471,7 @@ class _AuthScreenState extends State<AuthScreen>
                             color: Colors.redAccent, fontSize: 14),
                       ),
                     const SizedBox(height: 16),
-                    // دکمه ارسال
+                    // Submit button
                     Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -406,7 +505,11 @@ class _AuthScreenState extends State<AuthScreen>
                             ? const CircularProgressIndicator(
                                 color: Colors.white)
                             : Text(
-                                _isLoginTab ? 'ورود' : 'ثبت‌نام',
+                                _isAdminMode
+                                    ? 'ورود ادمین'
+                                    : _isLoginTab
+                                        ? 'ورود'
+                                        : 'ثبت‌نام',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 16,

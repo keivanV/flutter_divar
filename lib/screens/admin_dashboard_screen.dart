@@ -28,7 +28,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final adminProvider = Provider.of<AdminProvider>(context, listen: false);
-      print('initState: Fetching initial data');
       adminProvider.fetchUsersCount(context);
       adminProvider.fetchAdsCount(context, adType: _selectedAdType);
       adminProvider.fetchCommentsCount(context, adType: _selectedAdType);
@@ -42,12 +41,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   // Dialog to display and delete comments
   void _showCommentsDialog(BuildContext context, int adId, String adTitle) {
-    // Fetch comments when the dialog is created
-    final commentProvider =
-        Provider.of<CommentProvider>(context, listen: false);
-    print('Opening dialog for adId: $adId, title: $adTitle');
-    commentProvider.fetchCommentsByAdId(adId);
-
     showDialog(
       context: context,
       builder: (context) {
@@ -62,12 +55,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             width: double.maxFinite,
             child: Consumer<CommentProvider>(
               builder: (context, commentProvider, child) {
+                commentProvider.fetchCommentsByAdId(adId);
                 if (commentProvider.isLoading) {
                   return const Center(
                       child: CircularProgressIndicator(color: Colors.red));
                 }
                 if (commentProvider.errorMessage != null) {
-                  print('Dialog error: ${commentProvider.errorMessage}');
                   return Text(
                     commentProvider.errorMessage!,
                     style:
@@ -76,15 +69,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   );
                 }
                 if (commentProvider.comments.isEmpty) {
-                  print('Dialog: No comments found for adId: $adId');
                   return const Text(
                     'هیچ کامنتی یافت نشد',
                     style: TextStyle(fontFamily: 'Vazir', color: Colors.grey),
                     textDirection: TextDirection.rtl,
                   );
                 }
-                print(
-                    'Dialog: Loaded ${commentProvider.comments.length} comments');
                 return ListView.builder(
                   shrinkWrap: true,
                   itemCount: commentProvider.comments.length,
@@ -119,7 +109,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
                           final success = await adminProvider.deleteComment(
                               context, comment.commentId);
-                          if (success && context.mounted) {
+                          if (success) {
                             // Refresh all relevant data
                             await Future.wait([
                               commentProvider.fetchCommentsByAdId(adId),
@@ -131,7 +121,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               adminProvider.fetchAdsCount(context,
                                   adType: _selectedAdType),
                             ]);
-                            if (context.mounted) {
+                            if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text(
@@ -143,17 +133,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 ),
                               );
                             }
-                          } else if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  adminProvider.errorMessage ?? 'خطا در حذف',
-                                  style: const TextStyle(fontFamily: 'Vazir'),
-                                  textDirection: TextDirection.rtl,
+                          } else {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    adminProvider.errorMessage ?? 'خطا در حذف',
+                                    style: const TextStyle(fontFamily: 'Vazir'),
+                                    textDirection: TextDirection.rtl,
+                                  ),
+                                  backgroundColor: Colors.red,
                                 ),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
+                              );
+                            }
                           }
                         },
                       ),
@@ -460,7 +452,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       : filteredAds.map((ad) {
                           return ListTile(
                             leading:
-                                const Icon(Icons.delete, color: Colors.red),
+                                const Icon(Icons.remove, color: Colors.red),
                             title: Text(
                               ad.title,
                               style: const TextStyle(fontFamily: 'Vazir'),
@@ -499,7 +491,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
                                 final success = await adminProvider.deleteAd(
                                     context, ad.adId);
-                                if (success && context.mounted) {
+                                if (success) {
                                   // Refresh all relevant data
                                   await Future.wait([
                                     adProvider.fetchAds(),
@@ -511,7 +503,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     adminProvider.fetchCommentsCount(context,
                                         adType: _selectedAdType),
                                   ]);
-                                  if (context.mounted) {
+                                  if (mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text(
@@ -523,19 +515,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       ),
                                     );
                                   }
-                                } else if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        adminProvider.errorMessage ??
-                                            'خطا در حذف',
-                                        style: const TextStyle(
-                                            fontFamily: 'Vazir'),
-                                        textDirection: TextDirection.rtl,
+                                } else {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          adminProvider.errorMessage ??
+                                              'خطا در حذف',
+                                          style: const TextStyle(
+                                              fontFamily: 'Vazir'),
+                                          textDirection: TextDirection.rtl,
+                                        ),
+                                        backgroundColor: Colors.red,
                                       ),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
+                                    );
+                                  }
                                 }
                               },
                             ),
@@ -601,7 +595,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
                               final success = await adminProvider.deleteComment(
                                   context, comment.commentId);
-                              if (success && context.mounted) {
+                              if (success) {
                                 // Refresh all relevant data
                                 await Future.wait([
                                   commentProvider.fetchComments(null,
@@ -613,7 +607,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   adminProvider.fetchAdsCount(context,
                                       adType: _selectedAdType),
                                 ]);
-                                if (context.mounted) {
+                                if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text(
@@ -625,19 +619,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     ),
                                   );
                                 }
-                              } else if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      adminProvider.errorMessage ??
-                                          'خطا در حذف',
-                                      style:
-                                          const TextStyle(fontFamily: 'Vazir'),
-                                      textDirection: TextDirection.rtl,
+                              } else {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        adminProvider.errorMessage ??
+                                            'خطا در حذف',
+                                        style: const TextStyle(
+                                            fontFamily: 'Vazir'),
+                                        textDirection: TextDirection.rtl,
+                                      ),
+                                      backgroundColor: Colors.red,
                                     ),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
+                                  );
+                                }
                               }
                             },
                           ),

@@ -25,6 +25,9 @@ A full-stack Flutter application for displaying detailed information about adver
 | Backend  | Node.js + Express    |
 | Database | MySQL                |
 
+
+
+Note : Default user / pass For adminPannel : admin / admin
 ---
 
 ## 📸 Screenshots

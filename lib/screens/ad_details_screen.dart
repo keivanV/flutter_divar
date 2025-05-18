@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/ad.dart';
+import '../models/comment.dart';
 import '../providers/auth_provider.dart';
 import '../providers/bookmark_provider.dart';
+import '../providers/comment_provider.dart';
 
 class AdDetailsScreen extends StatefulWidget {
   const AdDetailsScreen({super.key});
@@ -15,10 +17,6 @@ class AdDetailsScreen extends StatefulWidget {
 class _AdDetailsScreenState extends State<AdDetailsScreen> {
   int _currentImageIndex = 0;
   final TextEditingController _commentController = TextEditingController();
-  final List<String> _mockComments = [
-    'خیلی ملک خوبیه، موقعیتش عالیه!',
-    'قیمتش یه کم بالاست، میشه تخفیف گرفت؟',
-  ];
   bool _isCommentsExpanded = false;
   bool _isBookmarked = false;
   bool _isBookmarkLoading = false;
@@ -30,6 +28,7 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
     _pageController = PageController(initialPage: _currentImageIndex);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkBookmarkStatus();
+      _fetchComments();
     });
   }
 
@@ -38,6 +37,15 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
     _commentController.dispose();
     _pageController?.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchComments() async {
+    final ad = ModalRoute.of(context)!.settings.arguments as Ad?;
+    if (ad != null && ad.adId != null) {
+      final commentProvider =
+          Provider.of<CommentProvider>(context, listen: false);
+      await commentProvider.fetchComments(ad.adId!);
+    }
   }
 
   Future<void> _checkBookmarkStatus() async {
@@ -121,6 +129,46 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
     }
   }
 
+  Future<void> _postComment(Ad ad) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final commentProvider =
+        Provider.of<CommentProvider>(context, listen: false);
+
+    if (authProvider.phoneNumber == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لطفاً ابتدا وارد شوید')),
+      );
+      Navigator.pushNamed(context, '/auth');
+      return;
+    }
+
+    if (_commentController.text.trim().isEmpty || ad.adId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('متن کامنت نمی‌تواند خالی باشد')),
+      );
+      return;
+    }
+
+    try {
+      await commentProvider.postComment(
+        adId: ad.adId!,
+        userPhoneNumber: authProvider.phoneNumber!,
+        content: _commentController.text.trim(),
+      );
+      _commentController.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('کامنت با موفقیت ثبت شد'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('خطا در ثبت کامنت: $e')),
+      );
+    }
+  }
+
   void _nextImage(int imageCount) {
     if (_currentImageIndex < imageCount - 1) {
       setState(() {
@@ -150,9 +198,9 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final ad = ModalRoute.of(context)!.settings.arguments as Ad;
-    print('Ad data: ${ad.toJson()}');
     final numberFormatter = NumberFormat('#,###', 'fa_IR');
     final authProvider = Provider.of<AuthProvider>(context);
+    final commentProvider = Provider.of<CommentProvider>(context);
     final phoneNumber = authProvider.phoneNumber;
 
     if (phoneNumber == null) {
@@ -223,8 +271,7 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
           padding: const EdgeInsets.all(16.0),
           children: [
             SizedBox(
-              height: MediaQuery.of(context).size.height *
-                  0.3, // حداکثر 30% ارتفاع صفحه
+              height: MediaQuery.of(context).size.height * 0.3,
               child: Container(
                 decoration: BoxDecoration(
                   boxShadow: [
@@ -429,20 +476,7 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                 const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.send, color: Colors.red),
-                  onPressed: () {
-                    if (_commentController.text.trim().isNotEmpty) {
-                      setState(() {
-                        _mockComments.add(_commentController.text.trim());
-                        _commentController.clear();
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('کامنت ثبت شد'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    }
-                  },
+                  onPressed: () => _postComment(ad),
                 ),
               ],
             ),
@@ -478,8 +512,37 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
             ),
             if (_isCommentsExpanded) ...[
               const SizedBox(height: 8),
-              _mockComments.isEmpty
-                  ? Padding(
+              Consumer<CommentProvider>(
+                builder: (context, commentProvider, child) {
+                  if (commentProvider.isLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (commentProvider.errorMessage != null) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Column(
+                        children: [
+                          Text(
+                            'خطا: ${commentProvider.errorMessage}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: Colors.red,
+                                  fontSize: 14,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: () => _fetchComments(),
+                            child: const Text('تلاش مجدد'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  if (commentProvider.comments.isEmpty) {
+                    return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Text(
                         'هنوز کامنتی ثبت نشده است',
@@ -488,59 +551,75 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                               fontSize: 14,
                             ),
                       ),
-                    )
-                  : Column(
-                      children: _mockComments
-                          .asMap()
-                          .entries
-                          .map(
-                            (entry) => Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  CircleAvatar(
-                                    radius: 20,
-                                    backgroundColor: Colors.grey[200],
-                                    child: const Icon(
-                                      Icons.person,
-                                      color: Colors.grey,
-                                      size: 24,
-                                    ),
+                    );
+                  }
+                  return Column(
+                    children: commentProvider.comments
+                        .asMap()
+                        .entries
+                        .map(
+                          (entry) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: Colors.grey[200],
+                                  child: const Icon(
+                                    Icons.person,
+                                    color: Colors.grey,
+                                    size: 24,
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'کاربر ${entry.key + 1}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodyMedium
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 14,
-                                              ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          entry.value,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodyMedium
-                                              ?.copyWith(fontSize: 14),
-                                        ),
-                                      ],
-                                    ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        entry.value.nickname ??
+                                            'کاربر ${entry.key + 1}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 14,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        entry.value.content,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(fontSize: 14),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        DateFormat('yyyy-MM-dd HH:mm')
+                                            .format(entry.value.createdAt),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: Colors.grey[600],
+                                              fontSize: 12,
+                                            ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          )
-                          .toList(),
-                    ),
+                          ),
+                        )
+                        .toList(),
+                  );
+                },
+              ),
             ],
             const SizedBox(height: 16),
             Divider(color: Colors.grey[300], thickness: 1),
@@ -825,7 +904,7 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 80), // فضای اضافی برای اسکرول
+            const SizedBox(height: 80),
           ],
         ),
       ),

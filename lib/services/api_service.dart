@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:divar_app/models/city.dart';
+import 'package:divar_app/models/comment.dart';
 import 'package:divar_app/models/province.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -282,6 +283,64 @@ class ApiService {
     } catch (e) {
       print('Error fetching cities: $e');
       throw Exception('Failed to fetch cities: $e');
+    }
+  }
+
+  Future<void> postComment({
+    required int adId,
+    required String userPhoneNumber,
+    required String content,
+  }) async {
+    try {
+      final uri = Uri.parse('$apiBaseUrl/ads/$adId/comments');
+      print(
+          'Posting comment to: $uri with data: {adId: $adId, user_phone_number: $userPhoneNumber, content: $content}');
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_phone_number': userPhoneNumber,
+          'content': content,
+        }),
+      );
+
+      print('Post comment status: ${response.statusCode}');
+      print('Post comment body: ${response.body}');
+
+      if (response.statusCode == 201) {
+        return;
+      } else {
+        throw Exception(
+            'Failed to post comment: ${response.statusCode} ${response.body}');
+      }
+    } catch (e) {
+      print('Error posting comment: $e');
+      throw Exception('Failed to post comment: $e');
+    }
+  }
+
+  Future<List<Comment>> getComments(int adId) async {
+    try {
+      final uri = Uri.parse('$apiBaseUrl/ads/$adId/comments');
+      print('Fetching comments from: $uri');
+      final response = await http.get(
+        uri,
+        headers: {'Accept': 'application/json; charset=utf-8'},
+      );
+
+      print('Get comments status: ${response.statusCode}');
+      print('Get comments body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => Comment.fromJson(json)).toList();
+      } else {
+        throw Exception(
+            'Failed to load comments: ${response.statusCode} ${response.body}');
+      }
+    } catch (e) {
+      print('Error fetching comments: $e');
+      throw Exception('Failed to fetch comments: $e');
     }
   }
 

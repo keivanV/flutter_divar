@@ -173,6 +173,101 @@ async function getAds(req, res) {
   }
 }
 
+
+
+// Create a new comment
+async function createComment(req, res) {
+  try {
+    const { ad_id } = req.params;
+    const { user_phone_number, content } = req.body;
+
+    // Validate input
+    const missingFields = [];
+    if (!user_phone_number || user_phone_number.trim() === '') missingFields.push('user_phone_number');
+    if (!content || content.trim() === '') missingFields.push('content');
+    if (!ad_id || isNaN(parseInt(ad_id))) missingFields.push('ad_id');
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        message: `فیلدهای الزامی پر نشده‌اند: ${missingFields.join(', ')}`,
+        missingFields,
+      });
+    }
+
+    const parsedAdId = parseInt(ad_id);
+
+    // Check if ad exists
+    const adCheck = await db.raw('SELECT 1 FROM advertisements WHERE ad_id = ?', [parsedAdId]);
+    if (adCheck[0].length === 0) {
+      return res.status(404).json({ message: 'آگهی یافت نشد' });
+    }
+
+    // Check if user exists
+    const userCheck = await db.raw('SELECT 1 FROM users WHERE phone_number = ?', [user_phone_number]);
+    if (userCheck[0].length === 0) {
+      return res.status(404).json({ message: 'کاربر یافت نشد' });
+    }
+
+    await db.raw('START TRANSACTION');
+
+    const commentResult = await db.raw(
+      `INSERT INTO comments (ad_id, user_phone_number, content) VALUES (?, ?, ?)`,
+      [parsedAdId, user_phone_number, content]
+    );
+
+    const commentId = commentResult[0].insertId;
+
+    await db.raw('COMMIT');
+
+    res.status(201).json({ message: 'کامنت با موفقیت ثبت شد', comment_id: commentId });
+  } catch (error) {
+    await db.raw('ROLLBACK');
+    console.error('Error creating comment:', error);
+    res.status(500).json({ message: `خطا در ثبت کامنت: ${error.message}` });
+  }
+}
+
+// Fetch comments for an ad
+async function getComments(req, res) {
+  try {
+    const { ad_id } = req.params;
+
+    if (!ad_id || isNaN(parseInt(ad_id))) {
+      return res.status(400).json({ message: 'شناسه آگهی نامعتبر است' });
+    }
+
+    const parsedAdId = parseInt(ad_id);
+
+    const commentsResult = await db.raw(
+      `
+      SELECT 
+        c.comment_id, c.ad_id, c.user_phone_number, c.content, c.created_at,
+        u.nickname
+      FROM comments c
+      LEFT JOIN users u ON c.user_phone_number = u.phone_number
+      WHERE c.ad_id = ?
+      ORDER BY c.created_at DESC
+      `,
+      [parsedAdId]
+    );
+
+    const comments = commentsResult[0].map(comment => ({
+      comment_id: comment.comment_id,
+      ad_id: comment.ad_id,
+      user_phone_number: comment.user_phone_number,
+      nickname: comment.nickname,
+      content: comment.content,
+      created_at: comment.created_at,
+    }));
+
+    res.status(200).json(comments);
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    res.status(500).json({ message: `خطا در دریافت کامنت‌ها: ${error.message}` });
+  }
+}
+
+
 // Create a new ad
 async function createAd(req, res) {
   try {
@@ -558,5 +653,7 @@ module.exports = {
   createAd,
   updateAd,
   deleteAd,
-  searchAds
+  searchAds,
+  createComment,
+  getComments,
 };

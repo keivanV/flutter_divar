@@ -1,3 +1,4 @@
+import 'package:divar_app/providers/comment_provider.dart';
 import 'package:divar_app/screens/ad_details_screen.dart';
 import 'package:divar_app/screens/location_screen.dart';
 import 'package:divar_app/screens/myAds_screen.dart';
@@ -27,6 +28,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AdProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()..initialize()),
         ChangeNotifierProvider(create: (_) => BookmarkProvider()),
+        ChangeNotifierProvider(create: (_) => CommentProvider()), // Add this
       ],
       child: Builder(
         builder: (context) {

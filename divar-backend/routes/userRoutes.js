@@ -6,5 +6,5 @@ const userController = require('../controllers/userController');
 router.post('/', userController.registerUser);
 router.get('/:phoneNumber', userController.getUserProfile);
 router.get('/:phoneNumber/ads', userController.getUserAds);
-
+router.get('/:phoneNumber/comments', userController.getUserComments); 
 module.exports = router;

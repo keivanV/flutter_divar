@@ -32,6 +32,29 @@ async function registerUser(req, res) {
   }
 }
 
+
+async function getUserComments(req, res) {
+    try {
+      const { phoneNumber } = req.params;
+      const comments = await db('comments')
+        .leftJoin('users', 'comments.user_phone_number', 'users.phone_number')
+        .where({ 'comments.user_phone_number': phoneNumber })
+        .select(
+          'comments.comment_id',
+          'comments.ad_id',
+          'comments.user_phone_number',
+          'users.nickname',
+          'comments.content',
+          'comments.created_at'
+        )
+        .orderBy('comments.created_at', 'desc');
+      res.json(comments);
+    } catch (error) {
+      console.error('Error fetching user comments:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+};
+
 async function getUserProfile(req, res) {
   try {
     const { phoneNumber } = req.params;
@@ -143,4 +166,5 @@ module.exports = {
   registerUser,
   getUserProfile,
   getUserAds,
+  getUserComments
 };

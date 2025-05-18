@@ -1,4 +1,3 @@
-
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/ad.dart';
@@ -44,6 +43,14 @@ class AdProvider with ChangeNotifier {
   AdProvider() {
     _sortBy = null;
     fetchAds();
+  }
+
+  Ad? getAdById(int adId) {
+    try {
+      return _ads.firstWhere((ad) => ad.adId == adId);
+    } catch (e) {
+      return null;
+    }
   }
 
   Future<void> postAd({

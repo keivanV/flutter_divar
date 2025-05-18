@@ -1,4 +1,5 @@
 import 'package:divar_app/screens/myAds_screen.dart';
+import 'package:divar_app/screens/my_comments_screen.dart'; // New import
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
@@ -118,6 +119,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       } else {
                         print(
                             'Cannot navigate to MyAdsScreen: phoneNumber is null');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('لطفاً ابتدا وارد شوید')),
+                        );
+                        Navigator.pushNamedAndRemoveUntil(
+                            context, '/auth', (route) => false);
+                      }
+                    }),
+                    _buildProfileItem(
+                        context, 'نمایش کامنت‌های من', FontAwesomeIcons.comment,
+                        () {
+                      final navPhoneNumber = authProvider.phoneNumber;
+                      if (navPhoneNumber != null) {
+                        print(
+                            'Navigating to MyCommentsScreen with phoneNumber: $navPhoneNumber');
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                MyCommentsScreen(phoneNumber: navPhoneNumber),
+                          ),
+                        );
+                      } else {
+                        print(
+                            'Cannot navigate to MyCommentsScreen: phoneNumber is null');
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                               content: Text('لطفاً ابتدا وارد شوید')),

@@ -319,6 +319,26 @@ class ApiService {
     }
   }
 
+  Future<List<Comment>> getUserComments(String userPhoneNumber) async {
+    try {
+      final uri = Uri.parse('$apiBaseUrl/users/$userPhoneNumber/comments');
+      final response = await http.get(
+        uri,
+        headers: {'Accept': 'application/json; charset=utf-8'},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => Comment.fromJson(json)).toList();
+      } else {
+        throw Exception(
+            'Failed to load user comments: ${response.statusCode} ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Failed to fetch user comments: $e');
+    }
+  }
+
   Future<List<Comment>> getComments(int adId) async {
     try {
       final uri = Uri.parse('$apiBaseUrl/ads/$adId/comments');

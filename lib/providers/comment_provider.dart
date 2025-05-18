@@ -5,6 +5,8 @@ import '../services/api_service.dart';
 class CommentProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
   List<Comment> _comments = [];
+  List<Comment> _userComments = [];
+  List<Comment> get userComments => _userComments; // Added getter
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -19,6 +21,22 @@ class CommentProvider with ChangeNotifier {
 
     try {
       _comments = await _apiService.getComments(adId);
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchUserComments(String userPhoneNumber) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      _userComments = await _apiService.getUserComments(userPhoneNumber);
       _isLoading = false;
       notifyListeners();
     } catch (e) {

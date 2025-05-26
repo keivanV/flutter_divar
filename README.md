@@ -43,7 +43,6 @@ Note : Default user / pass For adminPannel : admin / admin
 
   <table>
     <tr>
-
       <td><img src="project_images/screen1.png" alt="Home Screen" width="300"/></td>
       <td><img src="project_images/screen2.png" alt="Ad Details" width="300"/></td>
     </tr>

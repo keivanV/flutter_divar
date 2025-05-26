@@ -429,7 +429,7 @@ Future<List<Comment>> getUserComments(String userPhoneNumber, {String? adType}) 
             ? Uri.parse('$apiBaseUrl/admin/comments?offset=$offset')
             : Uri.parse('$apiBaseUrl/ads/$adId/comments?offset=$offset');
 
-    print('--------------------------------   $adId');
+    print(' [!] DEBUG   $adId');
 
     // final uri = Uri.parse('$apiBaseUrl/ads/$adId/comments?offset=$offset');
 

@@ -260,6 +260,7 @@ async function getComments(req, res) {
       created_at: comment.created_at,
     }));
 
+
     res.status(200).json(comments);
   } catch (error) {
     console.error('Error fetching comments:', error);
@@ -554,17 +555,33 @@ async function testSearch(req, res) {
     res.status(500).json({ message: error.message });
   }
 }
-
-// Update an ad
 async function updateAd(req, res) {
   try {
     const { ad_id } = req.params;
-    const { title, description, price } = req.body;
+    const { title, description, ad_type, price, base_price, total_price, deposit, monthly_rent, real_estate_type, owner_phone_number } = req.body;
 
     const missingFields = [];
     if (!title || title.trim() === '') missingFields.push('title');
     if (!description || description.trim() === '') missingFields.push('description');
-    if (!price || isNaN(parseInt(price))) missingFields.push('price');
+    if (!ad_type || !['VEHICLE', 'REAL_ESTATE', 'OTHER'].includes(ad_type)) missingFields.push('ad_type');
+    if (!owner_phone_number || owner_phone_number.trim() === '') missingFields.push('owner_phone_number');
+
+    if (ad_type === 'REAL_ESTATE') {
+      if (!real_estate_type || !['SALE', 'RENT'].includes(real_estate_type)) {
+        missingFields.push('real_estate_type');
+      }
+      if (real_estate_type === 'SALE' && (!total_price || isNaN(parseInt(total_price)))) {
+        missingFields.push('total_price');
+      }
+      if (real_estate_type === 'RENT') {
+        if (!deposit || isNaN(parseInt(deposit))) missingFields.push('deposit');
+        if (!monthly_rent || isNaN(parseInt(monthly_rent))) missingFields.push('monthly_rent');
+      }
+    } else if (ad_type === 'VEHICLE' && (!base_price || isNaN(parseInt(base_price)))) {
+      missingFields.push('base_price');
+    } else if (ad_type === 'OTHER' && (!price || isNaN(parseInt(price)))) {
+      missingFields.push('price');
+    }
 
     if (missingFields.length > 0) {
       return res.status(400).json({ 
@@ -573,20 +590,73 @@ async function updateAd(req, res) {
       });
     }
 
-    const parsedPrice = parseInt(price);
+    const parsedAdId = parseInt(ad_id);
+    const parsedPrice = ad_type === 'VEHICLE' ? parseInt(base_price) : ad_type === 'REAL_ESTATE' && real_estate_type === 'SALE' ? parseInt(total_price) : ad_type === 'REAL_ESTATE' && real_estate_type === 'RENT' ? parseInt(deposit) : parseInt(price);
+    const parsedBasePrice = ad_type === 'VEHICLE' ? parseInt(base_price) : null;
+    const parsedTotalPrice = ad_type === 'REAL_ESTATE' && real_estate_type === 'SALE' ? parseInt(total_price) : null;
+    const parsedDeposit = ad_type === 'REAL_ESTATE' && real_estate_type === 'RENT' ? parseInt(deposit) : null;
+    const parsedMonthlyRent = ad_type === 'REAL_ESTATE' && real_estate_type === 'RENT' ? parseInt(monthly_rent) : null;
+
+    if (isNaN(parsedAdId)) {
+      return res.status(400).json({ message: 'شناسه آگهی نامعتبر است' });
+    }
+    if (ad_type === 'VEHICLE' && (isNaN(parsedBasePrice) || parsedBasePrice < 0)) {
+      return res.status(400).json({ message: 'قیمت پایه باید یک عدد معتبر و غیرمنفی باشد' });
+    }
+    if (ad_type === 'REAL_ESTATE' && real_estate_type === 'SALE' && (isNaN(parsedTotalPrice) || parsedTotalPrice < 0)) {
+      return res.status(400).json({ message: 'قیمت کل باید یک عدد معتبر و غیرمنفی باشد' });
+    }
+    if (ad_type === 'REAL_ESTATE' && real_estate_type === 'RENT') {
+      if (isNaN(parsedDeposit) || parsedDeposit < 0) {
+        return res.status(400).json({ message: 'ودیعه باید یک عدد معتبر و غیرمنفی باشد' });
+      }
+      if (isNaN(parsedMonthlyRent) || parsedMonthlyRent < 0) {
+        return res.status(400).json({ message: 'اجاره ماهیانه باید یک عدد معتبر و غیرمنفی باشد' });
+      }
+    }
+    if (ad_type === 'OTHER' && (isNaN(parsedPrice) || parsedPrice < 0)) {
+      return res.status(400).json({ message: 'قیمت باید یک عدد معتبر و غیرمنفی باشد' });
+    }
 
     await db.raw('START TRANSACTION');
 
-    const updateResult = await db.raw(
+    // Update the advertisements table
+    const updateAdResult = await db.raw(
       `UPDATE advertisements 
-       SET title = ?, description = ?, price = ?
+       SET title = ?, description = ?, price = ?, ad_type = ?, owner_phone_number = ?
        WHERE ad_id = ?`,
-      [title, description, parsedPrice, ad_id]
+      [title, description, parsedPrice || 0, ad_type, owner_phone_number, parsedAdId]
     );
 
-    if (updateResult[0].affectedRows === 0) {
+    if (updateAdResult[0].affectedRows === 0) {
       await db.raw('ROLLBACK');
       return res.status(404).json({ message: 'آگهی یافت نشد' });
+    }
+
+    // Update the real_estate_ads table if ad_type is REAL_ESTATE
+    if (ad_type === 'REAL_ESTATE') {
+      if (real_estate_type === 'SALE') {
+        await db.raw(
+          `UPDATE real_estate_ads 
+           SET total_price = ?, deposit = NULL, monthly_rent = NULL
+           WHERE ad_id = ?`,
+          [parsedTotalPrice, parsedAdId]
+        );
+      } else if (real_estate_type === 'RENT') {
+        await db.raw(
+          `UPDATE real_estate_ads 
+           SET deposit = ?, monthly_rent = ?, total_price = NULL
+           WHERE ad_id = ?`,
+          [parsedDeposit, parsedMonthlyRent, parsedAdId]
+        );
+      }
+    } else if (ad_type === 'VEHICLE') {
+      await db.raw(
+        `UPDATE vehicle_ads 
+         SET base_price = ?
+         WHERE ad_id = ?`,
+        [parsedBasePrice, parsedAdId]
+      );
     }
 
     await db.raw('COMMIT');

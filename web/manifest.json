@@ -1,6 +1,6 @@
 {
-    "name": "divar",
-    "short_name": "divar",
+    "name": "divar_app",
+    "short_name": "divar_app",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

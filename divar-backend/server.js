@@ -22,10 +22,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// تنظیمات Multer برای ذخیره فایل‌ها
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/'); // پوشه‌ای برای ذخیره تصاویر
+    cb(null, 'uploads/'); 
   },
   filename: (req, file, cb) => {
     cb(null, `${Date.now()}-${file.originalname}`);
@@ -47,14 +47,14 @@ const upload = multer({
 
 app.use(express.json());
 
-// ایجاد پوشه uploads اگر وجود نداشته باشد
+
 const fs = require('fs');
 const uploadDir = './uploads';
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
 
-// ارائه فایل‌های استاتیک از پوشه uploads
+
 app.use('/uploads', express.static('uploads'));
 app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);
@@ -62,7 +62,7 @@ app.use('/api/ads', adRoutes);
 app.use('/api/bookmarks', bookmarkRoutes);
 app.use('/api', locationRoutes); 
 
-// مسیر آپلود تصاویر
+
 app.post('/api/upload', upload.single('image'), async (req, res, next) => {
   try {
     if (!req.file) {

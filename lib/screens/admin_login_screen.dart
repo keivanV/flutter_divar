@@ -61,21 +61,24 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                 else
                   ElevatedButton(
                     onPressed: () async {
-                      try {
-                        await authProvider.adminLogin(
-                          _usernameController.text,
-                          _passwordController.text,
-                        );
+                      await authProvider.adminLogin(
+                        _usernameController.text,
+                        _passwordController.text,
+                      );
+                      if (authProvider.errorMessage == null) {
+                        // Only navigate if login is successful
                         Navigator.pushReplacementNamed(
                             context, '/admin_dashboard');
-                      } catch (e) {
+                      } else {
+                        // Show SnackBar with error message
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              authProvider.errorMessage ?? 'ورود ناموفق',
+                              authProvider.errorMessage!,
                               style: const TextStyle(fontFamily: 'Vazir'),
                               textDirection: TextDirection.rtl,
                             ),
+                            backgroundColor: Colors.red,
                           ),
                         );
                       }

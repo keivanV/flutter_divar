@@ -5,14 +5,17 @@ const adminController = {
   async login(req, res) {
     try {
       const { username, password } = req.body;
+      console.log('Login attempt:', { username, password }); // Added
       if (!username || !password) {
         return res.status(400).json({ message: 'نام کاربری و رمز عبور الزامی است' });
       }
       const admin = await db('admins').where({ username }).first();
       if (!admin) {
+        console.log('Admin not found for username:', username); // Added
         return res.status(401).json({ message: 'نام کاربری یا رمز عبور اشتباه است' });
       }
       const isMatch = await bcrypt.compare(password, admin.password_hash);
+      console.log('Password match:', isMatch, 'Stored hash:', admin.password_hash); // Added
       if (!isMatch) {
         return res.status(401).json({ message: 'نام کاربری یا رمز عبور اشتباه است' });
       }

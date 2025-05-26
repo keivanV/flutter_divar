@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import '../models/province.dart';
+import '../models/city.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -10,8 +12,7 @@ class AuthScreen extends StatefulWidget {
   _AuthScreenState createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen>
-    with SingleTickerProviderStateMixin {
+class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
   final _firstNameController = TextEditingController();
@@ -28,26 +29,9 @@ class _AuthScreenState extends State<AuthScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
-  final List<Map<String, dynamic>> provinces = [
-    {'id': 1, 'name': 'Tehran'},
-    {'id': 2, 'name': 'Isfahan'},
-    {'id': 3, 'name': 'Fars'},
-    {'id': 4, 'name': 'Khuzestan'},
-    {'id': 5, 'name': 'Mazandaran'},
-  ];
-
-  final List<Map<String, dynamic>> cities = [
-    {'id': 1, 'name': 'Tehran', 'province_id': 1},
-    {'id': 2, 'name': 'Karaj', 'province_id': 1},
-    {'id': 3, 'name': 'Isfahan', 'province_id': 2},
-    {'id': 4, 'name': 'Kashan', 'province_id': 2},
-    {'id': 5, 'name': 'Shiraz', 'province_id': 3},
-    {'id': 6, 'name': 'Marvdasht', 'province_id': 3},
-    {'id': 7, 'name': 'Ahvaz', 'province_id': 4},
-    {'id': 8, 'name': 'Dezful', 'province_id': 4},
-    {'id': 9, 'name': 'Sari', 'province_id': 5},
-    {'id': 10, 'name': 'Babol', 'province_id': 5},
-  ];
+  // متغیرها برای ذخیره لیست‌های دریافت‌شده از API
+  List<Province> provinces = [];
+  List<City> cities = [];
 
   @override
   void initState() {
@@ -60,6 +44,40 @@ class _AuthScreenState extends State<AuthScreen>
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
     _animationController.forward();
+
+    // لود کردن استان‌ها در زمان اولیه‌سازی
+    _loadProvinces();
+  }
+
+  // تابع برای لود کردن استان‌ها
+  Future<void> _loadProvinces() async {
+    try {
+      final apiService = ApiService();
+      final fetchedProvinces = await apiService.getProvinces();
+      setState(() {
+        provinces = fetchedProvinces;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'خطا در لود کردن استان‌ها: $e';
+      });
+    }
+  }
+
+  // تابع برای لود کردن شهرها بر اساس provinceId
+  Future<void> _loadCities(int provinceId) async {
+    try {
+      final apiService = ApiService();
+      final fetchedCities = await apiService.getCities(provinceId);
+      setState(() {
+        cities = fetchedCities;
+        _cityId = null; // ریست کردن شهر انتخاب‌شده
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'خطا در لود کردن شهرها: $e';
+      });
+    }
   }
 
   @override
@@ -85,16 +103,13 @@ class _AuthScreenState extends State<AuthScreen>
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     try {
       if (_isAdminMode) {
-        // Admin login
         await authProvider.adminLogin(
             _usernameController.text, _passwordController.text);
         Navigator.pushReplacementNamed(context, '/admin_dashboard');
       } else if (_isLoginTab) {
-        // User login
         await authProvider.login(_phoneController.text);
         Navigator.pushReplacementNamed(context, '/home');
       } else {
-        // User registration
         await authProvider.register({
           'phone_number': _phoneController.text,
           'first_name': _firstNameController.text,
@@ -129,7 +144,7 @@ class _AuthScreenState extends State<AuthScreen>
   void _toggleAdminMode() {
     setState(() {
       _isAdminMode = !_isAdminMode;
-      _isLoginTab = true; // Reset to login tab when switching modes
+      _isLoginTab = true;
       _errorMessage = null;
       _animationController.reset();
       _animationController.forward();
@@ -150,7 +165,6 @@ class _AuthScreenState extends State<AuthScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title
                     Text(
                       _isAdminMode
                           ? 'ورود ادمین'
@@ -164,7 +178,6 @@ class _AuthScreenState extends State<AuthScreen>
                               ),
                     ),
                     const SizedBox(height: 24),
-                    // Admin login fields
                     if (_isAdminMode) ...[
                       TextFormField(
                         controller: _usernameController,
@@ -223,7 +236,6 @@ class _AuthScreenState extends State<AuthScreen>
                         },
                       ),
                     ] else ...[
-                      // User login/registration fields
                       TextFormField(
                         controller: _phoneController,
                         decoration: const InputDecoration(
@@ -367,14 +379,18 @@ class _AuthScreenState extends State<AuthScreen>
                           value: _provinceId,
                           items: provinces
                               .map((province) => DropdownMenuItem<int>(
-                                    value: province['id'] as int,
-                                    child: Text(province['name'] as String),
+                                    value: province.provinceId,
+                                    child: Text(province.name),
                                   ))
                               .toList(),
                           onChanged: (value) {
                             setState(() {
                               _provinceId = value;
                               _cityId = null;
+                              cities = []; // ریست کردن لیست شهرها
+                              if (value != null) {
+                                _loadCities(value); // لود کردن شهرها
+                              }
                             });
                           },
                           validator: (value) {
@@ -407,11 +423,9 @@ class _AuthScreenState extends State<AuthScreen>
                           ),
                           value: _cityId,
                           items: cities
-                              .where(
-                                  (city) => city['province_id'] == _provinceId)
                               .map((city) => DropdownMenuItem<int>(
-                                    value: city['id'] as int,
-                                    child: Text(city['name'] as String),
+                                    value: city.cityId,
+                                    child: Text(city.name),
                                   ))
                               .toList(),
                           onChanged: (value) {
@@ -429,7 +443,6 @@ class _AuthScreenState extends State<AuthScreen>
                       ],
                     ],
                     const SizedBox(height: 24),
-                    // Toggle between user and admin login
                     TextButton(
                       onPressed: _toggleAdminMode,
                       child: Text(
@@ -442,7 +455,6 @@ class _AuthScreenState extends State<AuthScreen>
                         ),
                       ),
                     ),
-                    // User registration link
                     if (!_isAdminMode && _isLoginTab)
                       Column(
                         children: [
@@ -471,7 +483,6 @@ class _AuthScreenState extends State<AuthScreen>
                             color: Colors.redAccent, fontSize: 14),
                       ),
                     const SizedBox(height: 16),
-                    // Submit button
                     Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(

@@ -588,11 +588,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+
   String _getPriceText(Ad ad) {
-    if (ad.adType == 'REAL_ESTATE' && ad.totalPrice != null) {
-      return 'قیمت: ${ad.totalPrice} تومان';
-    } else if (ad.adType == 'VEHICLE' && ad.basePrice != null) {
-      return 'قیمت: ${ad.basePrice} تومان';
+    if (ad.adType == 'REAL_ESTATE') {
+      if (ad.realEstateType == 'RENT') {
+        final depositText = ad.deposit != null ? '${ad.deposit}' : 'توافقی';
+        final rentText = ad.monthlyRent != null ? '${ad.monthlyRent}' : 'توافقی';
+        return 'ودیعه: $depositText تومان | اجاره: $rentText تومان';
+      } else if (ad.realEstateType == 'SALE' && ad.totalPrice != null) {
+        return 'قیمت کل: ${ad.totalPrice} تومان';
+      }
+      return 'قیمت: توافقی';
+    } else if (ad.adType == 'VEHICLE' && ad.price != null) {
+      return 'قیمت: ${ad.price} تومان';
     } else if (ad.price != null) {
       return 'قیمت: ${ad.price} تومان';
     }

@@ -15,6 +15,7 @@ class AuthProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   int? get adminId => _adminId;
   static const String _phoneNumberKey = 'phone_number';
+  static const String _adminIdKey = 'admin_id'; // Added for clarity
 
   Future<void> adminLogin(String username, String password) async {
     _isLoading = true;
@@ -23,10 +24,20 @@ class AuthProvider with ChangeNotifier {
     try {
       final adminId = await _apiService.adminLogin(username, password);
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('admin_id', adminId);
+      await prefs.setInt(_adminIdKey, adminId);
       _adminId = adminId;
+      print('adminLogin successful, adminId: $adminId, stored in SharedPreferences'); // Enhanced
+      // Verify storage
+      final storedAdminId = prefs.getInt(_adminIdKey);
+      print('Verified stored adminId: $storedAdminId'); // Added
     } catch (e) {
-      _errorMessage = e.toString();
+      if (e.toString().contains('نام کاربری یا رمز عبور اشتباه است')) {
+        _errorMessage = 'رمز اشتباه است';
+      } else {
+        _errorMessage = e.toString();
+      }
+      print('adminLogin error: $e');
+      throw Exception(_errorMessage);
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -38,15 +49,14 @@ class AuthProvider with ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final storedPhoneNumber = prefs.getString(_phoneNumberKey);
-      print('Stored phone number: $storedPhoneNumber');
+      final storedAdminId = prefs.getInt(_adminIdKey);
+      print('Stored phone number: $storedPhoneNumber, adminId: $storedAdminId');
       if (storedPhoneNumber != null && storedPhoneNumber.isNotEmpty) {
         try {
-          // بررسی وجود کاربر در بک‌اند
           await _apiService.fetchUserProfile(storedPhoneNumber);
           _phoneNumber = storedPhoneNumber;
           print('User profile fetched successfully for $storedPhoneNumber');
         } catch (e) {
-          // در صورت خطا (مثلاً کاربر حذف شده)، اطلاعات پاک می‌شوند
           print('Error fetching user profile: $e');
           await prefs.remove(_phoneNumberKey);
           _phoneNumber = null;
@@ -55,21 +65,25 @@ class AuthProvider with ChangeNotifier {
         _phoneNumber = null;
         print('No stored phone number found');
       }
+      _adminId = storedAdminId;
+      if (_adminId != null) {
+        print('Admin ID initialized: $_adminId'); // Added
+      } else {
+        print('No admin ID found in SharedPreferences'); // Added
+      }
     } catch (e) {
-      // مدیریت خطاهای غیرمنتظره در SharedPreferences
       print('Error initializing SharedPreferences: $e');
       _phoneNumber = null;
+      _adminId = null;
     }
-    print('AuthProvider.initialize completed, phoneNumber: $_phoneNumber');
+    print('AuthProvider.initialize completed, phoneNumber: $_phoneNumber, adminId: $_adminId');
     notifyListeners();
   }
 
   Future<void> login(String phoneNumber) async {
     try {
-      // بررسی وجود کاربر در بک‌اند
       await _apiService.fetchUserProfile(phoneNumber);
       _phoneNumber = phoneNumber;
-      // ذخیره شماره موبایل در shared_preferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_phoneNumberKey, phoneNumber);
       print('Login successful, stored phone number: $phoneNumber');
@@ -82,11 +96,9 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> register(Map<String, dynamic> userData) async {
     try {
-      // افزودن سطح اکانت پیش‌فرض
       userData['account_level'] = 'LEVEL_3';
       await _apiService.registerUser(userData);
       _phoneNumber = userData['phone_number'];
-      // ذخیره شماره موبایل در shared_preferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_phoneNumberKey, userData['phone_number']);
       print('Registration successful, stored phone number: ${_phoneNumber}');
@@ -99,9 +111,11 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> logout() async {
     _phoneNumber = null;
+    _adminId = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_phoneNumberKey);
-    print('Logged out, cleared stored phone number');
+    await prefs.remove(_adminIdKey);
+    print('Logged out, cleared stored phone number and admin id');
     notifyListeners();
   }
 }

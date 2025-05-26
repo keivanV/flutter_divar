@@ -54,22 +54,41 @@ class ApiService {
     }
   }
 
-  Future<void> updateAd({
-    required int adId,
-    required String title,
-    required String description,
-    int? price,
-  }) async {
+
+Future<void> updateAd({required Map<String, dynamic> adData}) async {
+    final adId = adData['ad_id'] as int?;
+    final title = adData['title'] as String?;
+    final description = adData['description'] as String?;
+    final adType = adData['ad_type'] as String?;
+    final phoneNumber = adData['owner_phone_number'] as String?;
+
+    // Validate inputs
+    if (adId == null || adId <= 0) {
+      throw Exception('شناسه آگهی نامعتبر است');
+    }
+    if (title == null || title.isEmpty) {
+      throw Exception('عنوان آگهی نمی‌تواند خالی باشد');
+    }
+    if (description == null || description.isEmpty) {
+      throw Exception('توضیحات آگهی نمی‌تواند خالی باشد');
+    }
+    if (adType == null || !['VEHICLE', 'REAL_ESTATE', 'OTHER'].contains(adType)) {
+      throw Exception('نوع آگهی نامعتبر است');
+    }
+    if (phoneNumber == null || phoneNumber.isEmpty) {
+      throw Exception('شماره تلفن نمی‌تواند خالی باشد');
+    }
+
     final uri = Uri.parse('$apiBaseUrl/ads/$adId');
+    print('Updating ad at: $uri with data: $adData');
     final response = await http.put(
       uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'title': title,
-        'description': description,
-        'price': price,
-      }),
+      headers: _getHeaders(),
+      body: jsonEncode(adData),
     );
+
+    print('Update ad status: ${response.statusCode}');
+    print('Update ad body: ${response.body}');
 
     if (response.statusCode != 200) {
       throw Exception(

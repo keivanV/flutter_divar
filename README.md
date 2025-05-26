@@ -8,7 +8,7 @@
 
 A full-stack Flutter application for displaying detailed information about advertisements, such as real estate or vehicle listings. The app features a clean and responsive UI with functionalities like image carousels, bookmarking, commenting, and detailed property or vehicle information. The backend is powered by Node.js with a RESTful API and a MySQL database, hosted in a separate repository: `divar-backend`.
 
-**Note use divar_app_schema.sql for  creating Mysql Schema and Data **
+**Note use divar_app_schema.sql for  creating Mysql Schema and Data**
 
 ---
 

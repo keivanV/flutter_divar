@@ -43,7 +43,7 @@ Note : Default user / pass For adminPannel : admin / admin
 
   <table>
     <tr>
-      <td><img src="project_images/screen.png" alt="Home Screen" width="300"/></td>
+
       <td><img src="project_images/screen1.png" alt="Home Screen" width="300"/></td>
       <td><img src="project_images/screen2.png" alt="Ad Details" width="300"/></td>
     </tr>
@@ -60,6 +60,7 @@ Note : Default user / pass For adminPannel : admin / admin
     <tr>
       <td><img src="project_images/screen9.png" alt="Bookmarks" width="300"/></td>
       <td><img src="project_images/screen10.png" alt="Bookmarks" width="300"/></td>
+      <td><img src="project_images/screen11.png" alt="Bookmarks" width="300"/></td>
       <td></td>
     </tr>
   </table>

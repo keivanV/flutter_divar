@@ -10,7 +10,7 @@ class Comment {
     required this.commentId,
     required this.adId,
     required this.userPhoneNumber,
-    this.nickname,
+    required this.nickname,
     required this.content,
     required this.createdAt,
   });

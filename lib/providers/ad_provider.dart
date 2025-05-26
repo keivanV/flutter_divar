@@ -49,17 +49,50 @@ class AdProvider with ChangeNotifier {
 
 
 
+  // Ad? getAdById(int adId) {
+  //   try {
+  //     return _ads.firstWhere((ad) => ad.adId == adId);
+  //   } catch (e) {
+  //     return null;
+  //   }
+  // }
 
-  Ad? getAdById(int adId) {
+
+Ad? getAdById(int adId) {
     try {
-      return _ads.firstWhere((ad) => ad.adId == adId);
+      // ابتدا در _commentRelatedAds جستجو کن
+      return _commentRelatedAds.firstWhere(
+            (ad) => ad.adId == adId,
+            orElse: () => _ads.firstWhere(
+                  (ad) => ad.adId == adId,
+                  
+                ),
+          );
     } catch (e) {
       return null;
     }
   }
 
 
+  Future<void> fetchCommentRelatedAds(List<int> adIds) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
 
+    try {
+      print('Fetching comment-related ads for adIds: $adIds');
+      final ads = await _apiService.fetchAdsByIds(adIds);
+      print('Fetched ${ads.length} comment-related ads');
+      _commentRelatedAds = ads;
+    } catch (e, stackTrace) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      print('Error fetching comment-related ads: $_errorMessage');
+      print('Stack trace: $stackTrace');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 
 
   

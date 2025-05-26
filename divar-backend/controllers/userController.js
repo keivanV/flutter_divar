@@ -41,6 +41,7 @@ async function getUserComments(req, res) {
         .where({ 'comments.user_phone_number': phoneNumber })
         .select(
           'comments.comment_id',
+          
           'comments.ad_id',
           'comments.user_phone_number',
           'users.nickname',
@@ -49,11 +50,97 @@ async function getUserComments(req, res) {
         )
         .orderBy('comments.created_at', 'desc');
       res.json(comments);
+      console.log("comments " , comments);
     } catch (error) {
       console.error('Error fetching user comments:', error);
       res.status(500).json({ message: 'Server error' });
     }
 };
+
+
+async function getAdsByIds(req, res) {
+  try {
+    const { ad_ids } = req.body;
+
+    if (!ad_ids || !Array.isArray(ad_ids) || ad_ids.length === 0) {
+      return res.status(400).json({ message: 'لیست ad_ids الزامی است و باید آرایه‌ای غیرخالی باشد' });
+    }
+
+    // Fetch basic ad details
+    const adsQuery = `
+      SELECT 
+        a.ad_id, a.title, a.description, a.ad_type, a.price, a.province_id, a.city_id, 
+        a.owner_phone_number, a.created_at, a.status,
+        p.name AS province_name, c.name AS city_name
+      FROM advertisements a
+      LEFT JOIN provinces p ON a.province_id = p.province_id
+      LEFT JOIN cities c ON a.city_id = c.city_id
+      WHERE a.ad_id IN (${ad_ids.map(() => '?').join(',')})
+    `;
+    const adsResult = await db.raw(adsQuery, ad_ids);
+    const ads = adsResult[0];
+    console.log(`Found ${ads.length} ads for ad_ids: ${ad_ids}`);
+
+    const result = await Promise.all(
+      ads.map(async (ad) => {
+        // Fetch images
+        const imagesQuery = `
+          SELECT image_url 
+          FROM ad_images 
+          WHERE ad_id = ?
+        `;
+        const imagesResult = await db.raw(imagesQuery, [ad.ad_id]);
+        const images = imagesResult[0].map(row => row.image_url).filter(url => url != null);
+        console.log(`Fetched ${images.length} images for ad_id: ${ad.ad_id}`);
+
+        // Fetch specific details
+        let specificDetails = {};
+        if (ad.ad_type === 'REAL_ESTATE') {
+          const realEstateQuery = `
+            SELECT real_estate_type, area, construction_year, rooms, total_price, 
+                   price_per_meter, has_parking, has_storage, has_balcony, deposit, 
+                   monthly_rent, floor
+            FROM real_estate_ads 
+            WHERE ad_id = ?
+          `;
+          const realEstateResult = await db.raw(realEstateQuery, [ad.ad_id]);
+          specificDetails = realEstateResult[0][0] || {};
+          if (specificDetails.real_estate_type === 'SALE') {
+            specificDetails.deposit = null;
+            specificDetails.monthly_rent = null;
+          }
+          console.log(`Fetched real estate details for ad_id: ${ad.ad_id}`);
+        } else if (ad.ad_type === 'VEHICLE') {
+          const vehicleQuery = `
+            SELECT brand, model, mileage, color, gearbox, base_price, 
+                   engine_status, chassis_status, body_status
+            FROM vehicle_ads 
+            WHERE ad_id = ?
+          `;
+          const vehicleResult = await db.raw(vehicleQuery, [ad.ad_id]);
+          specificDetails = vehicleResult[0][0] || {};
+          console.log(`Fetched vehicle details for ad_id: ${ad.ad_id}`);
+        }
+
+        return {
+          ...ad,
+          images,
+          ...specificDetails,
+        };
+      })
+    );
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching ads by IDs:', {
+      message: error.message,
+      stack: error.stack,
+      ad_ids: req.body.ad_ids,
+    });
+    res.status(500).json({ message: `خطا در دریافت آگهی‌ها: ${error.message}` });
+  }
+}
+
 
 async function getUserProfile(req, res) {
   try {
@@ -166,5 +253,6 @@ module.exports = {
   registerUser,
   getUserProfile,
   getUserAds,
-  getUserComments
+  getUserComments,
+  getAdsByIds, 
 };

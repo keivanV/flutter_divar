@@ -379,31 +379,61 @@ Future<void> updateAd({required Map<String, dynamic> adData}) async {
       throw Exception('Failed to post comment: $e');
     }
   }
+Future<List<Ad>> fetchAdsByIds(List<int> adIds) async {
+  try {
+    final uri = Uri.parse('$apiBaseUrl/users/ads/by-ids');
 
-  Future<List<Comment>> getUserComments(String userPhoneNumber) async {
-    try {
-      final uri = Uri.parse('$apiBaseUrl/users/$userPhoneNumber/comments');
-      final response = await http.get(
-        uri,
-        headers: {'Accept': 'application/json; charset=utf-8'},
-      );
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'ad_ids': adIds}),
+    );
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => Comment.fromJson(json)).toList();
-      } else {
-        throw Exception(
-            'Failed to load user comments: ${response.statusCode} ${response.body}');
-      }
-    } catch (e) {
-      throw Exception('Failed to fetch user comments: $e');
+    if (response.statusCode == 200) {
+      final List<dynamic> jsonList = jsonDecode(response.body);
+      return jsonList.map((json) => Ad.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to fetch ads by IDs: ${response.statusCode}');
     }
+  } catch (e) {
+    throw Exception('Error fetching ads by IDs: $e');
   }
+}
+
+Future<List<Comment>> getUserComments(String userPhoneNumber, {String? adType}) async {
+  try {
+    final queryParams = {
+      if (adType != null) 'ad_type': adType,
+    };
+    final uri = Uri.parse('$apiBaseUrl/users/$userPhoneNumber/comments')
+        .replace(queryParameters: queryParams);
+    final response = await http.get(
+      uri,
+      headers: {'Accept': 'application/json; charset=utf-8'},
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((json) => Comment.fromJson(json)).toList();
+    } else {
+      throw Exception(
+          'Failed to load user comments: ${response.statusCode} ${response.body}');
+    }
+  } catch (e) {
+    throw Exception('Failed to fetch user comments: $e');
+  }
+}
 
   Future<List<Comment>> getComments(int? adId, {int offset = 0}) async {
     final uri = adId == null
-        ? Uri.parse('$apiBaseUrl/admin/comments?offset=$offset')
-        : Uri.parse('$apiBaseUrl/admin/ads/$adId/comments?offset=$offset');
+            ? Uri.parse('$apiBaseUrl/admin/comments?offset=$offset')
+            : Uri.parse('$apiBaseUrl/ads/$adId/comments?offset=$offset');
+
+    print('--------------------------------   $adId');
+
+    // final uri = Uri.parse('$apiBaseUrl/ads/$adId/comments?offset=$offset');
+
+
     final response = await http.get(
       uri,
       headers: _getHeaders(adminId: '1'),

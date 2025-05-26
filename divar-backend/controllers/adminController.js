@@ -14,8 +14,8 @@ const adminController = {
         console.log('Admin not found for username:', username); // Added
         return res.status(401).json({ message: 'نام کاربری یا رمز عبور اشتباه است' });
       }
-      const isMatch = await bcrypt.compare(password, admin.password_hash);
-      console.log('Password match:', isMatch, 'Stored hash:', admin.password_hash); // Added
+      const isMatch = await bcrypt.compare(password, admin.password);
+      console.log('Password match:', isMatch, 'Stored hash:', admin.password); // Added
       if (!isMatch) {
         return res.status(401).json({ message: 'نام کاربری یا رمز عبور اشتباه است' });
       }
@@ -235,26 +235,52 @@ const adminController = {
 
 
   // متد جدید برای دریافت کامنت‌های یک آگهی
-  async getCommentsByAdId(req, res) {
-    try {
-      const adminId = req.headers['x-admin-id'];
-      if (!adminId || isNaN(adminId)) {
-        return res.status(401).json({ message: 'شناسه ادمین نامعتبر است' });
-      }
-      const admin = await db('admins').where({ admin_id: adminId }).first();
-      if (!admin) {
-        return res.status(401).json({ message: 'ادمین نامعتبر است' });
-      }
-      const { adId } = req.params;
-      const comments = await db('comments')
-        .where({ ad_id: adId })
-        .select('comment_id', 'ad_id', 'user_phone_number', 'content', 'created_at');
-      res.json(comments);
-    } catch (error) {
-      console.error('خطا در دریافت کامنت‌های آگهی:', error);
-      res.status(500).json({ message: 'خطای سرور' });
+async getCommentsByAdId(req, res) {
+  try {
+
+    console.log("*****************************");
+
+
+    const adminId = req.headers['x-admin-id'];
+
+    if (!adminId || isNaN(adminId)) {
+      return res.status(401).json({ message: 'شناسه ادمین نامعتبر است' });
     }
-  },
+
+    const admin = await db('admins').where({ admin_id: adminId }).first();
+
+
+    if (!admin) {
+      return res.status(401).json({ message: 'ادمین نامعتبر است' });
+    }
+
+    const { adId } = req.params;
+    const parsedAdId = parseInt(adId);
+
+    if (!parsedAdId || isNaN(parsedAdId)) {
+      return res.status(400).json({ message: 'شناسه آگهی نامعتبر است' });
+    }
+
+    const comments = await db('comments as c')
+      .leftJoin('users as u', 'c.user_phone_number', 'u.phone_number')
+      .where('c.ad_id', parsedAdId)
+      .select(
+        'c.comment_id',
+        'c.ad_id',
+        'c.user_phone_number',
+        'u.nickname',
+        'c.content',
+        'c.created_at'
+      )
+      .orderBy('c.created_at', 'desc');
+
+    res.status(200).json(comments);
+  } catch (error) {
+    console.error('خطا در دریافت کامنت‌های آگهی:', error);
+    res.status(500).json({ message: `خطای سرور: ${error.message}` });
+  }
+}
+
 };
 
 module.exports = adminController;

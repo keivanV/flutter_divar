@@ -232,6 +232,8 @@ async function getComments(req, res) {
   try {
     const { ad_id } = req.params;
 
+    console.log("=========================================")
+
     if (!ad_id || isNaN(parseInt(ad_id))) {
       return res.status(400).json({ message: 'شناسه آگهی نامعتبر است' });
     }
@@ -260,6 +262,7 @@ async function getComments(req, res) {
       created_at: comment.created_at,
     }));
 
+    console.log("=======================> " , comments);
 
     res.status(200).json(comments);
   } catch (error) {

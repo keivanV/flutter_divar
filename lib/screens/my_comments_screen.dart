@@ -1,3 +1,4 @@
+import 'package:divar_app/models/ad.dart';
 import 'package:divar_app/models/comment.dart';
 import 'package:divar_app/screens/ad_details_screen.dart';
 import 'package:flutter/material.dart';
@@ -21,10 +22,20 @@ class _MyCommentsScreenState extends State<MyCommentsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final commentProvider =
-          Provider.of<CommentProvider>(context, listen: false);
+      final commentProvider = Provider.of<CommentProvider>(context, listen: false);
+      final adProvider = Provider.of<AdProvider>(context, listen: false);
       print('Fetching comments for phoneNumber: ${widget.phoneNumber}');
-      commentProvider.fetchUserComments(widget.phoneNumber);
+      commentProvider.fetchUserComments(widget.phoneNumber).then((_) {
+        // استخراج adIds از کامنت‌ها
+        final adIds = commentProvider.userComments
+            .map((comment) => comment.adId)
+            .toSet()
+            .toList();
+        if (adIds.isNotEmpty) {
+          print('Fetching ads for adIds: $adIds');
+          adProvider.fetchCommentRelatedAds(adIds);
+        }
+      });
     });
   }
 
@@ -36,7 +47,7 @@ class _MyCommentsScreenState extends State<MyCommentsScreen> {
       ),
       body: Consumer2<CommentProvider, AdProvider>(
         builder: (context, commentProvider, adProvider, child) {
-          if (commentProvider.isLoading) {
+          if (commentProvider.isLoading || adProvider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
           if (commentProvider.errorMessage != null) {
@@ -57,11 +68,20 @@ class _MyCommentsScreenState extends State<MyCommentsScreen> {
                           Provider.of<AuthProvider>(context, listen: false);
                       if (authProvider.phoneNumber != null) {
                         commentProvider
-                            .fetchUserComments(authProvider.phoneNumber!);
+                            .fetchUserComments(authProvider.phoneNumber!)
+                            .then((_) {
+                          final adIds = commentProvider.userComments
+                              .map((comment) => comment.adId)
+                              .toSet()
+                              .toList();
+                          if (adIds.isNotEmpty) {
+                            print('Retrying fetch ads for adIds: $adIds');
+                            adProvider.fetchCommentRelatedAds(adIds);
+                          }
+                        });
                       }
                     },
-                    style:
-                        ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                     child: const Text('تلاش مجدد',
                         style: TextStyle(fontFamily: 'Vazir')),
                   ),
@@ -70,10 +90,10 @@ class _MyCommentsScreenState extends State<MyCommentsScreen> {
             );
           }
           if (commentProvider.userComments.isEmpty) {
-            return Center(
+            return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
+                children: [
                   Icon(Icons.comment, size: 64, color: Colors.grey),
                   SizedBox(height: 16),
                   Text(
@@ -93,7 +113,18 @@ class _MyCommentsScreenState extends State<MyCommentsScreen> {
             itemCount: commentProvider.userComments.length,
             itemBuilder: (context, index) {
               final comment = commentProvider.userComments[index];
-              final ad = adProvider.getAdById(comment.adId);
+              final ad = adProvider.getAdById(comment.adId) ??
+                  Ad(
+                    adId: comment.adId,
+                    title: 'آگهی حذف شده',
+                    description: '',
+                    adType: '',
+                    price: 0,
+                    provinceId: 0,
+                    cityId: 0,
+                    ownerPhoneNumber: '',
+                    createdAt: DateTime.now(), status: '', imageUrls: [],
+                  );
               return Card(
                 elevation: 4,
                 margin: const EdgeInsets.only(bottom: 8),
@@ -101,7 +132,7 @@ class _MyCommentsScreenState extends State<MyCommentsScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: InkWell(
-                  onTap: ad != null
+                  onTap: ad.title != 'آگهی حذف شده'
                       ? () {
                           print(
                               'Navigating to AdDetailsScreen for ad: ${ad.adId}');
@@ -132,7 +163,7 @@ class _MyCommentsScreenState extends State<MyCommentsScreen> {
                         const SizedBox(height: 8),
                         // Ad Title
                         Text(
-                          'آگهی: ${ad?.title ?? 'آگهی حذف شده'}',
+                          'آگهی: ${ad.title}',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -152,7 +183,7 @@ class _MyCommentsScreenState extends State<MyCommentsScreen> {
                         ),
                         // Category
                         Text(
-                          'دسته‌بندی: ${ad != null ? _getCategoryName(ad.adType) : 'نامشخص'}',
+                          'دسته‌بندی: ${_getCategoryName(ad.adType)}',
                           style: const TextStyle(
                             fontSize: 10,
                             fontFamily: 'Vazir',

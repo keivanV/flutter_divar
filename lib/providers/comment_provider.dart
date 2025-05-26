@@ -41,7 +41,7 @@ class CommentProvider with ChangeNotifier {
     try {
       _comments = await _apiService.getComments(adId, offset: offset);
       print(
-          'fetchComments: Loaded ${_comments.length} comments for adId: $adId');
+          '---> fetchComments: Loaded ${_comments.length} comments for adId: $adId');
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -52,22 +52,21 @@ class CommentProvider with ChangeNotifier {
     }
   }
 
-  Future<void> fetchUserComments(String userPhoneNumber) async {
-    _isLoading = true;
-    _errorMessage = null;
+Future<void> fetchUserComments(String userPhoneNumber, {String? adType}) async {
+  _isLoading = true;
+  _errorMessage = null;
+  notifyListeners();
+
+  try {
+    _userComments = await _apiService.getUserComments(userPhoneNumber, adType: adType);
+    _isLoading = false;
     notifyListeners();
-
-    try {
-      _userComments = await _apiService.getUserComments(userPhoneNumber);
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _isLoading = false;
-      _errorMessage = 'خطا در دریافت کامنت‌های کاربر: $e';
-      notifyListeners();
-    }
+  } catch (e) {
+    _isLoading = false;
+    _errorMessage = 'خطا در دریافت کامنت‌های کاربر: $e';
+    notifyListeners();
   }
-
+}
   Future<void> postComment({
     required int adId,
     required String userPhoneNumber,
@@ -87,6 +86,7 @@ class CommentProvider with ChangeNotifier {
       await fetchComments(adId, offset: 0);
       _isLoading = false;
       notifyListeners();
+
     } catch (e) {
       _isLoading = false;
       _errorMessage = 'خطا در ارسال کامنت: $e';

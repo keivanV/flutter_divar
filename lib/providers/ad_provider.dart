@@ -10,7 +10,7 @@ class AdProvider with ChangeNotifier {
   List<Ad> _userAds = [];
   List<Ad> _searchResults = [];
   List<Province> _provinces = [];
-  List<Ad> _commentRelatedAds = []; 
+  List<Ad> _commentRelatedAds = [];
   List<City> _cities = [];
   bool _isLoading = false;
   String? _sortBy;
@@ -24,7 +24,7 @@ class AdProvider with ChangeNotifier {
   List<Ad> get userAds => _userAds;
   List<Ad> get searchResults => _searchResults;
   List<Province> get provinces => _provinces;
-  List<Ad> get commentRelatedAds => _commentRelatedAds; 
+  List<Ad> get commentRelatedAds => _commentRelatedAds;
   List<City> get cities => _cities;
   bool get isLoading => _isLoading;
   String? get sortBy => _sortBy;
@@ -47,32 +47,48 @@ class AdProvider with ChangeNotifier {
     fetchAds();
   }
 
-
-
-  // Ad? getAdById(int adId) {
-  //   try {
-  //     return _ads.firstWhere((ad) => ad.adId == adId);
-  //   } catch (e) {
-  //     return null;
-  //   }
-  // }
-
-
-Ad? getAdById(int adId) {
+  Ad? getAdById(int adId) {
     try {
-      // ابتدا در _commentRelatedAds جستجو کن
       return _commentRelatedAds.firstWhere(
-            (ad) => ad.adId == adId,
-            orElse: () => _ads.firstWhere(
-                  (ad) => ad.adId == adId,
-                  
-                ),
-          );
+        (ad) => ad.adId == adId,
+        orElse: () => _ads.firstWhere(
+          (ad) => ad.adId == adId,
+        ),
+      );
     } catch (e) {
       return null;
     }
   }
 
+  Future<Ad?> fetchAdById(int adId) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      print('Fetching ad with adId: $adId');
+      final ad = await _apiService.fetchAdById(adId);
+      if (ad != null) {
+        print('Fetched ad: ${ad.toJson()}');
+        // Update _ads, avoiding duplicates
+        _ads = [..._ads.where((a) => a.adId != adId), ad];
+        notifyListeners();
+        return ad;
+      } else {
+        _errorMessage = 'آگهی با شناسه $adId یافت نشد';
+        print('Error: $_errorMessage');
+        return null;
+      }
+    } catch (e, stackTrace) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      print('Error fetching ad by ID: $_errorMessage');
+      print('Stack trace: $stackTrace');
+      return null;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 
   Future<void> fetchCommentRelatedAds(List<int> adIds) async {
     _isLoading = true;
@@ -93,9 +109,6 @@ Ad? getAdById(int adId) {
       notifyListeners();
     }
   }
-
-
-  
 
   Future<void> postAd({
     required String title,
@@ -127,6 +140,9 @@ Ad? getAdById(int adId) {
     String? engineStatus,
     String? chassisStatus,
     String? bodyStatus,
+    String? itemCondition, // For DIGITAL, HOME, PERSONAL, ENTERTAINMENT
+    String? serviceType, // For SERVICES
+    String? serviceDuration, // For SERVICES
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -135,7 +151,7 @@ Ad? getAdById(int adId) {
     try {
       final cleanPhoneNumber = phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
       if (cleanPhoneNumber.length != 11) {
-        throw Exception('شماره تلفن باید 11 رقم باشد');
+        throw Exception('شماره تلفن باید ۱۱ رقم باشد');
       }
 
       String effectivePrice;
@@ -145,19 +161,24 @@ Ad? getAdById(int adId) {
         }
         effectivePrice = basePrice;
       } else if (adType == 'REAL_ESTATE') {
-        if (realEstateType == null || !['SALE', 'RENT'].contains(realEstateType)) {
+        if (realEstateType == null ||
+            !['SALE', 'RENT'].contains(realEstateType)) {
           throw Exception('نوع معامله املاک (فروش یا اجاره) الزامی است');
         }
-        if (area == null || int.tryParse(area) == null || int.parse(area) <= 0) {
+        if (area == null ||
+            int.tryParse(area) == null ||
+            int.parse(area) <= 0) {
           throw Exception('مساحت الزامی و باید عدد معتبر بزرگ‌تر از صفر باشد');
         }
         if (constructionYear == null ||
             int.tryParse(constructionYear) == null ||
             int.parse(constructionYear) < 1300 ||
             int.parse(constructionYear) > 1404) {
-          throw Exception('سال ساخت الزامی و باید بین 1300 تا 1404 باشد');
+          throw Exception('سال ساخت الزامی و باید بین ۱۳۰۰ تا ۱۴۰۴ باشد');
         }
-        if (rooms == null || int.tryParse(rooms) == null || int.parse(rooms) < 0) {
+        if (rooms == null ||
+            int.tryParse(rooms) == null ||
+            int.parse(rooms) < 0) {
           throw Exception('تعداد اتاق الزامی و باید عدد معتبر غیرمنفی باشد');
         }
         if (floor == null || int.tryParse(floor) == null) {
@@ -165,51 +186,47 @@ Ad? getAdById(int adId) {
         }
         if (realEstateType == 'SALE') {
           if (totalPrice == null || int.tryParse(totalPrice) == null) {
-            throw Exception('قیمت کل برای فروش املاک الزامی و باید عدد معتبر باشد');
+            throw Exception(
+                'قیمت کل برای فروش املاک الزامی و باید عدد معتبر باشد');
           }
           effectivePrice = totalPrice;
         } else {
           // RENT
           if (deposit == null || int.tryParse(deposit) == null) {
-            throw Exception('ودیعه برای اجاره املاک الزامی و باید عدد معتبر باشد');
+            throw Exception(
+                'ودیعه برای اجاره املاک الزامی و باید عدد معتبر باشد');
           }
           if (monthlyRent == null || int.tryParse(monthlyRent) == null) {
-            throw Exception('اجاره ماهانه برای اجاره املاک الزامی و باید عدد معتبر باشد');
+            throw Exception(
+                'اجاره ماهانه برای اجاره املاک الزامی و باید عدد معتبر باشد');
           }
           effectivePrice = deposit; // Use deposit as price for RENT ads
         }
-      } else {
-        effectivePrice = price ?? '0';
-      }
-
-      if (adType == 'VEHICLE') {
+      } else if (['DIGITAL', 'HOME', 'PERSONAL', 'ENTERTAINMENT']
+          .contains(adType)) {
         if (brand == null || brand.isEmpty) {
-          throw Exception('برند خودرو الزامی است');
+          throw Exception('برند الزامی است');
         }
         if (model == null || model.isEmpty) {
-          throw Exception('مدل خودرو الزامی است');
+          throw Exception('مدل الزامی است');
         }
-        if (mileage == null || int.tryParse(mileage) == null) {
-          throw Exception('کارکرد خودرو الزامی و باید عدد معتبر باشد');
+        if (itemCondition == null || !['NEW', 'USED'].contains(itemCondition)) {
+          throw Exception('وضعیت باید "نو" یا "کارکرده" باشد');
         }
-        if (color == null || color.isEmpty) {
-          throw Exception('رنگ خودرو الزامی است');
+        effectivePrice = price ?? '0';
+      } else if (adType == 'SERVICES') {
+        if (serviceType == null || serviceType.isEmpty) {
+          throw Exception('نوع خدمت الزامی است');
         }
-        if (gearbox == null || !['MANUAL', 'AUTOMATIC'].contains(gearbox)) {
-          throw Exception('نوع گیربکس باید دستی یا اتوماتیک باشد');
+        if (serviceDuration != null && serviceDuration.isNotEmpty) {
+          if (int.tryParse(serviceDuration) == null ||
+              int.parse(serviceDuration) <= 0) {
+            throw Exception('مدت زمان خدمت باید عدد مثبت باشد');
+          }
         }
-        if (engineStatus == null ||
-            !['HEALTHY', 'NEEDS_REPAIR'].contains(engineStatus)) {
-          throw Exception('وضعیت موتور باید سالم یا نیاز به تعمیر باشد');
-        }
-        if (chassisStatus == null ||
-            !['HEALTHY', 'IMPACTED'].contains(chassisStatus)) {
-          throw Exception('وضعیت شاسی باید سالم یا تصادفی باشد');
-        }
-        if (bodyStatus == null ||
-            !['HEALTHY', 'MINOR_SCRATCH', 'ACCIDENTED'].contains(bodyStatus)) {
-          throw Exception('وضعیت بدنه باید سالم، خط و خش جزیی یا تصادفی باشد');
-        }
+        effectivePrice = price ?? '0';
+      } else {
+        effectivePrice = price ?? '0';
       }
 
       int? calculatedPricePerMeter;
@@ -217,9 +234,11 @@ Ad? getAdById(int adId) {
         if (realEstateType == 'RENT' && deposit != null && area != null) {
           final areaInt = int.parse(area);
           final depositInt = int.parse(deposit);
-          calculatedPricePerMeter = depositInt ~/ areaInt; // Price per meter for RENT
+          calculatedPricePerMeter =
+              depositInt ~/ areaInt; // Price per meter for RENT
         } else if (realEstateType == 'SALE' && pricePerMeter != null) {
-          calculatedPricePerMeter = int.parse(pricePerMeter); // Price per meter for SALE
+          calculatedPricePerMeter =
+              int.parse(pricePerMeter); // Price per meter for SALE
         }
       }
 
@@ -233,11 +252,15 @@ Ad? getAdById(int adId) {
         'owner_phone_number': cleanPhoneNumber,
         if (adType == 'REAL_ESTATE') ...{
           'real_estate_type': realEstateType,
-          'area': int.parse(area!),
-          'construction_year': int.parse(constructionYear!),
-          'rooms': int.parse(rooms!),
-          'total_price': realEstateType == 'RENT' ? 0 : int.parse(totalPrice!),
-          if (calculatedPricePerMeter != null) 'price_per_meter': calculatedPricePerMeter,
+          'area': area != null ? int.parse(area) : null,
+          'construction_year':
+              constructionYear != null ? int.parse(constructionYear) : null,
+          'rooms': rooms != null ? int.parse(rooms) : null,
+          'total_price': realEstateType == 'RENT'
+              ? 0
+              : (totalPrice != null ? int.parse(totalPrice) : null),
+          if (calculatedPricePerMeter != null)
+            'price_per_meter': calculatedPricePerMeter,
           if (hasParking != null) 'has_parking': hasParking,
           if (hasStorage != null) 'has_storage': hasStorage,
           if (hasBalcony != null) 'has_balcony': hasBalcony,
@@ -249,18 +272,31 @@ Ad? getAdById(int adId) {
             'monthly_rent': int.parse(monthlyRent),
           if (realEstateType == 'SALE') 'deposit': null,
           if (realEstateType == 'SALE') 'monthly_rent': null,
-          'floor': int.parse(floor!),
+          'floor': floor != null ? int.parse(floor) : null,
         },
         if (adType == 'VEHICLE') ...{
           'brand': brand!,
           'model': model!,
-          'mileage': int.parse(mileage!),
+          'mileage': mileage != null ? int.parse(mileage!) : null,
           'color': color!,
           'gearbox': gearbox!,
-          'base_price': int.parse(basePrice!),
+          'base_price': basePrice != null ? int.parse(basePrice!) : null,
           'engine_status': engineStatus!,
           'chassis_status': chassisStatus!,
           'body_status': bodyStatus!,
+        },
+        if (['DIGITAL', 'HOME', 'PERSONAL', 'ENTERTAINMENT']
+            .contains(adType)) ...{
+          'brand': brand!,
+          'model': model!,
+          'item_condition': itemCondition!,
+        },
+        if (adType == 'SERVICES') ...{
+          'service_type': serviceType!,
+          'service_duration':
+              serviceDuration != null && serviceDuration.isNotEmpty
+                  ? int.parse(serviceDuration)
+                  : null,
         },
       };
 
@@ -291,13 +327,12 @@ Ad? getAdById(int adId) {
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       print('Error posting ad: $_errorMessage');
+      throw Exception('خطا در ثبت آگهی: $_errorMessage');
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
-
-
 
   Future<void> fetchAds({
     String? adType,
@@ -423,23 +458,29 @@ Ad? getAdById(int adId) {
         throw Exception('قیمت پایه برای آگهی خودرو الزامی و باید غیرمنفی باشد');
       }
       if (adType == 'REAL_ESTATE') {
-        if (realEstateType == null || !['SALE', 'RENT'].contains(realEstateType)) {
+        if (realEstateType == null ||
+            !['SALE', 'RENT'].contains(realEstateType)) {
           throw Exception('نوع آگهی املاک (فروش یا اجاره) الزامی است');
         }
-        if (realEstateType == 'SALE' && (totalPrice == null || totalPrice < 0)) {
-          throw Exception('قیمت کل برای آگهی فروش املاک الزامی و باید غیرمنفی باشد');
+        if (realEstateType == 'SALE' &&
+            (totalPrice == null || totalPrice < 0)) {
+          throw Exception(
+              'قیمت کل برای آگهی فروش املاک الزامی و باید غیرمنفی باشد');
         }
         if (realEstateType == 'RENT') {
           if (deposit == null || deposit < 0) {
-            throw Exception('ودیعه برای آگهی اجاره املاک الزامی و باید غیرمنفی باشد');
+            throw Exception(
+                'ودیعه برای آگهی اجاره املاک الزامی و باید غیرمنفی باشد');
           }
           if (monthlyRent == null || monthlyRent < 0) {
-            throw Exception('اجاره ماهیانه برای آگهی اجاره املاک الزامی و باید غیرمنفی باشد');
+            throw Exception(
+                'اجاره ماهیانه برای آگهی اجاره املاک الزامی و باید غیرمنفی باشد');
           }
         }
       }
 
-      print('updateAd called with: adId=$adId, title=$title, description=$description, '
+      print(
+          'updateAd called with: adId=$adId, title=$title, description=$description, '
           'price=$price, totalPrice=$totalPrice, deposit=$deposit, monthlyRent=$monthlyRent, '
           'phoneNumber=$phoneNumber, adType=$adType, realEstateType=$realEstateType');
 
@@ -485,50 +526,42 @@ Ad? getAdById(int adId) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       print('Error updating ad: $_errorMessage');
       print('Stack trace: $stackTrace');
-      throw Exception('Failed to update ad: $_errorMessage');
+      throw Exception('خطا در به‌روزرسانی آگهی: $_errorMessage');
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-Future<void> deleteAd(int adId, String phoneNumber) async {
-  _isLoading = true;
-  _errorMessage = null;
-  notifyListeners();
-
-  try {
-    // Optimistically remove the ad from both lists
-    _userAds.removeWhere((ad) => ad.adId == adId);
-    _ads.removeWhere((ad) => ad.adId == adId);
-
-    // Notify listeners to update UI immediately
+  Future<void> deleteAd(int adId, String phoneNumber) async {
+    _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
-    // Call API to delete the ad
-    await _apiService.deleteAd(adId);
-    print('Ad deleted: $adId');
+    try {
+      _userAds.removeWhere((ad) => ad.adId == adId);
+      _ads.removeWhere((ad) => ad.adId == adId);
+      notifyListeners();
 
-    // Refresh user ads to ensure consistency with server
-    await fetchUserAds(phoneNumber);
+      await _apiService.deleteAd(adId);
+      print('Ad deleted: $adId');
 
-    // Optionally refresh all ads to ensure HomeScreen is in sync
-    // This is only needed if other users' actions or server state might affect _ads
-    await fetchAds(
-      adType: _adType,
-      provinceId: _provinceId,
-      cityId: _cityId,
-      sortBy: _sortBy,
-    );
-  } catch (e, stackTrace) {
-    _errorMessage = e.toString().replaceFirst('Exception: ', '');
-    print('Error deleting ad: $_errorMessage');
-    print('Stack trace: $stackTrace');
-  } finally {
-    _isLoading = false;
-    notifyListeners();
+      await fetchUserAds(phoneNumber);
+      await fetchAds(
+        adType: _adType,
+        provinceId: _provinceId,
+        cityId: _cityId,
+        sortBy: _sortBy,
+      );
+    } catch (e, stackTrace) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      print('Error deleting ad: $_errorMessage');
+      print('Stack trace: $stackTrace');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
-}
 
   void setFilters({
     String? adType,
@@ -607,8 +640,8 @@ Future<void> deleteAd(int adId, String phoneNumber) async {
       print('Fetched ${_cities.length} cities for provinceId: $provinceId');
       notifyListeners();
     } catch (e) {
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      print('Error fetching cities: $_errorMessage');
+      _errorMessage = e.toString().replaceFirst(')', '');
+      print('Error fetching cities: $errorMessage');
       notifyListeners();
     }
   }

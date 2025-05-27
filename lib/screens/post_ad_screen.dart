@@ -32,7 +32,6 @@ class _PostAdScreenState extends State<PostAdScreen>
   final _mileageController = TextEditingController();
   final _colorController = TextEditingController();
   final _basePriceController = TextEditingController();
-  final _conditionController = TextEditingController();
   final _serviceTypeController = TextEditingController();
   final _serviceDurationController = TextEditingController();
 
@@ -47,7 +46,7 @@ class _PostAdScreenState extends State<PostAdScreen>
   String _engineStatus = 'HEALTHY';
   String _chassisStatus = 'HEALTHY';
   String _bodyStatus = 'HEALTHY';
-  String _condition = 'NEW';
+  String _itemCondition = 'NEW'; // Renamed from _condition
 
   List<File> _images = [];
   late AnimationController _animationController;
@@ -113,7 +112,6 @@ class _PostAdScreenState extends State<PostAdScreen>
     _colorController.dispose();
     _basePriceController.removeListener(_formatNumber);
     _basePriceController.dispose();
-    _conditionController.dispose();
     _serviceTypeController.dispose();
     _serviceDurationController.dispose();
     _animationController.dispose();
@@ -221,6 +219,37 @@ class _PostAdScreenState extends State<PostAdScreen>
       return;
     }
 
+    // Additional validation for DIGITAL, HOME, PERSONAL, ENTERTAINMENT
+    if (['DIGITAL', 'HOME', 'PERSONAL', 'ENTERTAINMENT'].contains(_category)) {
+      if (_brandController.text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('لطفاً برند را وارد کنید'),
+            duration: Duration(seconds: 5),
+          ),
+        );
+        return;
+      }
+      if (_modelController.text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('لطفاً مدل را وارد کنید'),
+            duration: Duration(seconds: 5),
+          ),
+        );
+        return;
+      }
+      if (_itemCondition.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('لطفاً وضعیت را انتخاب کنید'),
+            duration: Duration(seconds: 5),
+          ),
+        );
+        return;
+      }
+    }
+
     try {
       print(
           'Submitting ad with category: $_category, province: $_provinceId, city: $_cityId');
@@ -278,7 +307,17 @@ class _PostAdScreenState extends State<PostAdScreen>
         engineStatus: _category == 'VEHICLE' ? _engineStatus : null,
         chassisStatus: _category == 'VEHICLE' ? _chassisStatus : null,
         bodyStatus: _category == 'VEHICLE' ? _bodyStatus : null,
-
+        itemCondition:
+            ['DIGITAL', 'HOME', 'PERSONAL', 'ENTERTAINMENT'].contains(_category)
+                ? _itemCondition
+                : null, // Renamed from condition
+        serviceType:
+            _category == 'SERVICES' ? _serviceTypeController.text : null,
+        serviceDuration: _category == 'SERVICES'
+            ? _serviceDurationController.text.isNotEmpty
+                ? _serviceDurationController.text
+                : null
+            : null,
       );
 
       if (adProvider.errorMessage == null) {
@@ -454,7 +493,10 @@ class _PostAdScreenState extends State<PostAdScreen>
                             setState(() {
                               _category = value;
                               _realEstateType = null;
-                              _condition = 'NEW';
+                              _itemCondition = 'NEW';
+                              _brandController.clear();
+                              _modelController.clear();
+                              _priceController.clear();
                             });
                           },
                           validator: (value) {
@@ -840,7 +882,7 @@ class _PostAdScreenState extends State<PostAdScreen>
                           _buildDropdownField<String>(
                             label: 'وضعیت',
                             icon: Icons.check_circle,
-                            value: _condition,
+                            value: _itemCondition,
                             items: conditionTypes
                                 .map((type) => DropdownMenuItem<String>(
                                       value: type['id'],
@@ -849,7 +891,7 @@ class _PostAdScreenState extends State<PostAdScreen>
                                 .toList(),
                             onChanged: (value) {
                               setState(() {
-                                _condition = value!;
+                                _itemCondition = value!;
                               });
                             },
                             validator: (value) {
@@ -981,7 +1023,7 @@ class _PostAdScreenState extends State<PostAdScreen>
                           Padding(
                             padding: const EdgeInsets.only(top: 10),
                             child: Text(
-                              adProvider.errorMessage!,
+                              'adProvider.errorMessage!',
                               style: const TextStyle(
                                   color: Colors.redAccent, fontSize: 14),
                             ),
@@ -991,7 +1033,7 @@ class _PostAdScreenState extends State<PostAdScreen>
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'تصاویر آگهی (${_images.length}/5)',
+                              'تصاویر آگهی (${_images.length}/5))',
                               style: Theme.of(context)
                                   .textTheme
                                   .bodyMedium
@@ -1003,7 +1045,7 @@ class _PostAdScreenState extends State<PostAdScreen>
                               onPressed:
                                   _images.length < 5 ? _pickImages : null,
                               icon: const Icon(Icons.add_a_photo, size: 20),
-                              label: const Text('افزودن تصویر'),
+                              label: const Text('Add Photo'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.red,
                                 foregroundColor: Colors.white,
@@ -1030,7 +1072,9 @@ class _PostAdScreenState extends State<PostAdScreen>
                                   child: Stack(
                                     children: [
                                       GestureDetector(
-                                        onTap: () {},
+                                        onTap: () {
+                                          // Add your onTap functionality here
+                                        },
                                         child: Container(
                                           width: 100,
                                           height: 100,
@@ -1043,7 +1087,7 @@ class _PostAdScreenState extends State<PostAdScreen>
                                                     .withOpacity(0.2),
                                                 blurRadius: 5,
                                                 offset: const Offset(0, 3),
-                                              ),
+                                              )
                                             ],
                                             image: DecorationImage(
                                               image: FileImage(_images[index]),
@@ -1053,9 +1097,15 @@ class _PostAdScreenState extends State<PostAdScreen>
                                         ),
                                       ),
                                       Positioned(
-                                        top: 5,
-                                        left: 5,
+                                        top:
+                                            0, // Changed from 5 to 0 for better alignment
+                                        right:
+                                            0, // Changed from left to right for better UX
                                         child: IconButton(
+                                          iconSize:
+                                              20, // Added size for better visibility
+                                          padding: EdgeInsets
+                                              .zero, // Remove default padding
                                           icon: const Icon(Icons.remove_circle,
                                               color: Colors.red),
                                           onPressed: () {

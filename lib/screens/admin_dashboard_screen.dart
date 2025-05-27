@@ -1,3 +1,4 @@
+import 'package:divar_app/models/ad.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/admin_provider.dart';
@@ -17,10 +18,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   String? _selectedAdType;
   final List<String> _adTypes = [
     'ALL',
-    'VEHICLE',
     'REAL_ESTATE',
+    'VEHICLE',
     'DIGITAL',
-    'OTHER',
+    'HOME',
+    'SERVICES',
+    'PERSONAL',
+    'ENTERTAINMENT',
   ];
 
   @override
@@ -33,144 +37,165 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       adminProvider.fetchCommentsCount(context, adType: _selectedAdType);
       adminProvider.fetchTopCommentedAd(context);
 
-
-      Provider.of<AdProvider>(context, listen: false).fetchAds();
-      Provider.of<CommentProvider>(context, listen: false)
-          .fetchComments(null, offset: 0);
-  
-  
+      final adProvider = Provider.of<AdProvider>(context, listen: false);
+      final commentProvider =
+          Provider.of<CommentProvider>(context, listen: false);
+      adProvider.fetchAds(); // Fetch all ads initially
+      commentProvider.fetchComments(null, offset: 0).then((_) {
+        // After comments are fetched, fetch ads for comment adIds
+        final adIds = commentProvider.comments
+            .map((comment) => comment.adId)
+            .toSet()
+            .toList();
+        for (var adId in adIds) {
+          adProvider.fetchAdById(adId); // Fetch missing ads
+        }
+      });
     });
   }
 
   // Dialog to display and delete comments
-void _showCommentsDialog(BuildContext context, int adId, String adTitle) {
-  if (adId <= 0) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'شناسه آگهی نامعتبر است',
-          style: TextStyle(fontFamily: 'Vazir'),
-          textDirection: TextDirection.rtl,
-        ),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return;
-  }
-  print('Opening comments dialog for adId: $adId'); // Debug
-  showDialog(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: Text(
-          'کامنت‌های آگهی: $adTitle',
-          style: const TextStyle(fontFamily: 'Vazir', fontWeight: FontWeight.bold),
-          textDirection: TextDirection.rtl,
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Consumer<CommentProvider>(
-            builder: (context, commentProvider, child) {
-              commentProvider.fetchCommentsByAdId(adId);
-              if (commentProvider.isLoading) {
-                return const Center(child: CircularProgressIndicator(color: Colors.red));
-              }
-              if (commentProvider.errorMessage != null) {
-                return Text(
-                  commentProvider.errorMessage!,
-                  style: const TextStyle(fontFamily: 'Vazir', color: Colors.red),
-                  textDirection: TextDirection.rtl,
-                );
-              }
-              if (commentProvider.comments.isEmpty) {
-                return const Text(
-                  'هیچ کامنتی یافت نشد',
-                  style: TextStyle(fontFamily: 'Vazir', color: Colors.grey),
-                  textDirection: TextDirection.rtl,
-                );
-              }
-              return ListView.builder(
-                shrinkWrap: true,
-                itemCount: commentProvider.comments.length,
-                itemBuilder: (context, index) {
-                  final comment = commentProvider.comments[index];
-                  return ListTile(
-                    title: Text(
-                      comment.content,
-                      style: const TextStyle(fontFamily: 'Vazir'),
-                      textDirection: TextDirection.rtl,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text(
-                      'کاربر: ${comment.userPhoneNumber}',
-                      style: const TextStyle(fontFamily: 'Vazir', color: Colors.grey),
-                      textDirection: TextDirection.rtl,
-                    ),
-                    trailing: IconButton(
-                      icon: const FaIcon(FontAwesomeIcons.trash, color: Colors.red),
-                      onPressed: () async {
-                        final adminProvider = Provider.of<AdminProvider>(context, listen: false);
-                        final commentProvider = Provider.of<CommentProvider>(context, listen: false);
-                        final adProvider = Provider.of<AdProvider>(context, listen: false);
-
-                        final success = await adminProvider.deleteComment(context, comment.commentId);
-                        if (success) {
-                          await Future.wait([
-                            commentProvider.fetchCommentsByAdId(adId),
-                            commentProvider.fetchComments(null, offset: 0),
-                            adProvider.fetchAds(),
-                            adminProvider.fetchTopCommentedAd(context),
-                            adminProvider.fetchCommentsCount(context, adType: _selectedAdType),
-                            adminProvider.fetchAdsCount(context, adType: _selectedAdType),
-                          ]);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'کامنت حذف شد',
-                                  style: TextStyle(fontFamily: 'Vazir'),
-                                  textDirection: TextDirection.rtl,
-                                ),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          }
-                        } else {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  adminProvider.errorMessage ?? 'خطا در حذف',
-                                  style: const TextStyle(fontFamily: 'Vazir'),
-                                  textDirection: TextDirection.rtl,
-                                ),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                    ),
-                  );
-                },
-              );
-            },
+  void _showCommentsDialog(BuildContext context, int adId, String adTitle) {
+    if (adId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'شناسه آگهی نامعتبر است',
+            style: TextStyle(fontFamily: 'Vazir'),
+            textDirection: TextDirection.rtl,
           ),
+          backgroundColor: Colors.red,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'بستن',
-              style: TextStyle(fontFamily: 'Vazir', color: Colors.red),
+      );
+      return;
+    }
+    print('Opening comments dialog for adId: $adId'); // Debug
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(
+            'کامنت‌های آگهی: $adTitle',
+            style: const TextStyle(
+                fontFamily: 'Vazir', fontWeight: FontWeight.bold),
+            textDirection: TextDirection.rtl,
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Consumer<CommentProvider>(
+              builder: (context, commentProvider, child) {
+                commentProvider.fetchCommentsByAdId(adId);
+                if (commentProvider.isLoading) {
+                  return const Center(
+                      child: CircularProgressIndicator(color: Colors.red));
+                }
+                if (commentProvider.errorMessage != null) {
+                  return Text(
+                    commentProvider.errorMessage!,
+                    style:
+                        const TextStyle(fontFamily: 'Vazir', color: Colors.red),
+                    textDirection: TextDirection.rtl,
+                  );
+                }
+                if (commentProvider.comments.isEmpty) {
+                  return const Text(
+                    'هیچ کامنتی یافت نشد',
+                    style: TextStyle(fontFamily: 'Vazir', color: Colors.grey),
+                    textDirection: TextDirection.rtl,
+                  );
+                }
+                return ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: commentProvider.comments.length,
+                  itemBuilder: (context, index) {
+                    final comment = commentProvider.comments[index];
+                    return ListTile(
+                      title: Text(
+                        comment.content,
+                        style: const TextStyle(fontFamily: 'Vazir'),
+                        textDirection: TextDirection.rtl,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        'کاربر: ${comment.userPhoneNumber}',
+                        style: const TextStyle(
+                            fontFamily: 'Vazir', color: Colors.grey),
+                        textDirection: TextDirection.rtl,
+                      ),
+                      trailing: IconButton(
+                        icon: const FaIcon(FontAwesomeIcons.trash,
+                            color: Colors.red),
+                        onPressed: () async {
+                          final adminProvider = Provider.of<AdminProvider>(
+                              context,
+                              listen: false);
+                          final commentProvider = Provider.of<CommentProvider>(
+                              context,
+                              listen: false);
+                          final adProvider =
+                              Provider.of<AdProvider>(context, listen: false);
+
+                          final success = await adminProvider.deleteComment(
+                              context, comment.commentId);
+                          if (success) {
+                            await Future.wait([
+                              commentProvider.fetchCommentsByAdId(adId),
+                              commentProvider.fetchComments(null, offset: 0),
+                              adProvider.fetchAds(),
+                              adminProvider.fetchTopCommentedAd(context),
+                              adminProvider.fetchCommentsCount(context,
+                                  adType: _selectedAdType),
+                              adminProvider.fetchAdsCount(context,
+                                  adType: _selectedAdType),
+                            ]);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'کامنت حذف شد',
+                                    style: TextStyle(fontFamily: 'Vazir'),
+                                    textDirection: TextDirection.rtl,
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          } else {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    adminProvider.errorMessage ?? 'خطا در حذف',
+                                    style: const TextStyle(fontFamily: 'Vazir'),
+                                    textDirection: TextDirection.rtl,
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
             ),
           ),
-        ],
-      );
-    },
-  );
-}
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'بستن',
+                style: TextStyle(fontFamily: 'Vazir', color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   // Calculate comment count for an ad
   int _getCommentCountForAd(int adId, CommentProvider commentProvider) {
@@ -227,12 +252,14 @@ void _showCommentsDialog(BuildContext context, int adId, String adTitle) {
               ),
             );
           }
-          final filteredAds =
-              _selectedAdType == null || _selectedAdType == 'ALL'
-                  ? adProvider.ads
-                  : adProvider.ads
-                      .where((ad) => ad.adType == _selectedAdType)
-                      .toList();
+          final filteredAds = _selectedAdType == null ||
+                  _selectedAdType == 'ALL'
+              ? adProvider.ads
+              : adProvider.ads
+                  .where((ad) =>
+                      ad.adType == _selectedAdType ||
+                      (ad.adType == 'SERVICE' && _selectedAdType == 'SERVICES'))
+                  .toList();
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
@@ -454,8 +481,8 @@ void _showCommentsDialog(BuildContext context, int adId, String adTitle) {
                         ]
                       : filteredAds.map((ad) {
                           return ListTile(
-                            leading:
-                                const Icon(Icons.remove, color: Colors.red),
+                            leading: Icon(FontAwesomeIcons.ad,
+                                color: Colors.blue[600]),
                             title: Text(
                               ad.title,
                               style: const TextStyle(fontFamily: 'Vazir'),
@@ -537,7 +564,7 @@ void _showCommentsDialog(BuildContext context, int adId, String adTitle) {
                               },
                             ),
                             onTap: () {
-                              // _showCommentsDialog(context, ad.adId, ad.title);
+                              _showCommentsDialog(context, ad.adId, ad.title);
                             },
                           );
                         }).toList(),
@@ -576,11 +603,30 @@ void _showCommentsDialog(BuildContext context, int adId, String adTitle) {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          subtitle: Text(
-                            'آگهی: ${ad?.title ?? 'آگهی حذف شده'}',
-                            style: const TextStyle(
-                                fontFamily: 'Vazir', color: Colors.grey),
-                            textDirection: TextDirection.rtl,
+                          subtitle: FutureBuilder(
+                            future: ad == null
+                                ? Provider.of<AdProvider>(context,
+                                        listen: false)
+                                    .fetchAdById(comment.adId)
+                                : Future.value(ad),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Text(
+                                  'در حال بارگذاری...',
+                                  style: TextStyle(
+                                      fontFamily: 'Vazir', color: Colors.grey),
+                                  textDirection: TextDirection.rtl,
+                                );
+                              }
+                              final fetchedAd = snapshot.data as Ad?;
+                              return Text(
+                                'آگهی: ${fetchedAd?.title ?? 'آگهی حذف شده یا یافت نشد'}',
+                                style: const TextStyle(
+                                    fontFamily: 'Vazir', color: Colors.grey),
+                                textDirection: TextDirection.rtl,
+                              );
+                            },
                           ),
                           trailing: IconButton(
                             icon: const FaIcon(FontAwesomeIcons.trash,
@@ -610,6 +656,14 @@ void _showCommentsDialog(BuildContext context, int adId, String adTitle) {
                                   adminProvider.fetchAdsCount(context,
                                       adType: _selectedAdType),
                                 ]);
+                                // Fetch ads for remaining comments
+                                final adIds = commentProvider.comments
+                                    .map((c) => c.adId)
+                                    .toSet()
+                                    .toList();
+                                for (var adId in adIds) {
+                                  adProvider.fetchAdById(adId);
+                                }
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
@@ -732,18 +786,25 @@ void _showCommentsDialog(BuildContext context, int adId, String adTitle) {
     );
   }
 
-  String _getCategoryName(String adType) {
+  String _getCategoryName(String? adType) {
     switch (adType) {
-      case 'VEHICLE':
-        return 'خودرو';
       case 'REAL_ESTATE':
         return 'املاک';
+      case 'VEHICLE':
+        return 'خودرو';
       case 'DIGITAL':
         return 'لوازم الکترونیکی';
-      case 'OTHER':
-        return 'سایر';
+      case 'HOME':
+        return 'لوازم خانگی';
+      case 'SERVICE':
+      case 'SERVICES':
+        return 'خدمات';
+      case 'PERSONAL':
+        return 'وسایل شخصی';
+      case 'ENTERTAINMENT':
+        return 'سرگرمی و فراغت';
       default:
-        return 'ناشناخته';
+        return 'سایر';
     }
   }
 }

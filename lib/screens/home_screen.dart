@@ -79,8 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: const CustomAppBar(),
       body: Consumer<AdProvider>(
         builder: (context, adProvider, child) {
-          print(
-              'HomeScreen Consumer rebuilt: ads=${adProvider.ads.length}, '
+          print('HomeScreen Consumer rebuilt: ads=${adProvider.ads.length}, '
               'provinceId=${adProvider.selectedProvinceId}, '
               'cityId=${adProvider.selectedCityId}, '
               'adType=${adProvider.adType}');
@@ -88,7 +87,8 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               // Category Filter
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -122,7 +122,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   style: TextStyle(
                                     fontFamily: 'Vazir',
                                     fontSize: 12,
-                                    color: isSelected ? Colors.white : Colors.red,
+                                    color:
+                                        isSelected ? Colors.white : Colors.red,
                                     fontWeight: isSelected
                                         ? FontWeight.bold
                                         : FontWeight.normal,
@@ -229,7 +230,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                           MaterialPageRoute(
                                             builder: (context) =>
                                                 const AdDetailsScreen(),
-                                            settings: RouteSettings(arguments: ad),
+                                            settings:
+                                                RouteSettings(arguments: ad),
                                           ),
                                         );
                                       },
@@ -250,7 +252,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                               child: ad.imageUrls.isNotEmpty
                                                   ? ClipRRect(
                                                       borderRadius:
-                                                          BorderRadius.circular(8),
+                                                          BorderRadius.circular(
+                                                              8),
                                                       child: CachedNetworkImage(
                                                         imageUrl:
                                                             ad.imageUrls.first,
@@ -263,20 +266,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                                         errorWidget: (context,
                                                                 url, error) =>
                                                             Icon(
-                                                          ad.adType ==
-                                                                  'REAL_ESTATE'
-                                                              ? Icons.home
-                                                              : Icons
-                                                                  .directions_car,
+                                                          _getIconForAdType(
+                                                              ad.adType),
                                                           size: 50,
                                                           color: Colors.grey,
                                                         ),
                                                       ),
                                                     )
                                                   : Icon(
-                                                      ad.adType == 'REAL_ESTATE'
-                                                          ? Icons.home
-                                                          : Icons.directions_car,
+                                                      _getIconForAdType(
+                                                          ad.adType),
                                                       size: 50,
                                                       color: Colors.grey,
                                                     ),
@@ -308,7 +307,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   const SizedBox(height: 2),
                                                   // Ad Type
                                                   Text(
-                                                    'نوع: ${ad.adType == 'REAL_ESTATE' ? 'املاک' : ad.adType == 'VEHICLE' ? 'خودرو' : 'سایر'}',
+                                                    'نوع: ${_getCategoryName(ad.adType)}',
                                                     style: const TextStyle(
                                                       fontSize: 10,
                                                       fontFamily: 'Vazir',
@@ -385,19 +384,26 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _getPriceText(Ad ad) {
+    final numberFormatter = NumberFormat('#,###', 'fa_IR');
     if (ad.adType == 'REAL_ESTATE') {
       if (ad.realEstateType == 'RENT') {
-        final depositText = ad.deposit != null ? '${ad.deposit}' : 'توافقی';
-        final rentText = ad.monthlyRent != null ? '${ad.monthlyRent}' : 'توافقی';
+        final depositText = ad.deposit != null
+            ? '${numberFormatter.format(ad.deposit)}'
+            : 'توافقی';
+        final rentText = ad.monthlyRent != null
+            ? '${numberFormatter.format(ad.monthlyRent)}'
+            : 'توافقی';
         return 'ودیعه: $depositText تومان | اجاره: $rentText تومان';
       } else if (ad.realEstateType == 'SALE' && ad.totalPrice != null) {
-        return 'قیمت کل: ${ad.totalPrice} تومان';
+        return 'قیمت کل: ${numberFormatter.format(ad.totalPrice)} تومان';
       }
       return 'قیمت: توافقی';
-    } else if (ad.adType == 'VEHICLE' && ad.price != null) {
-      return 'قیمت: ${ad.price} تومان';
+    } else if (ad.adType == 'VEHICLE' && ad.basePrice != null) {
+      return 'قیمت: ${numberFormatter.format(ad.basePrice)} تومان';
+    } else if (ad.adType == 'SERVICES' && ad.price != null) {
+      return 'هزینه: ${numberFormatter.format(ad.price)} تومان';
     } else if (ad.price != null) {
-      return 'قیمت: ${ad.price} تومان';
+      return 'قیمت: ${numberFormatter.format(ad.price)} تومان';
     }
     return 'قیمت: توافقی';
   }
@@ -415,6 +421,20 @@ class _HomeScreenState extends State<HomeScreen> {
         details += ' | کارکرد: ${ad.mileage} کیلومتر';
       }
       return details;
+    } else if (['DIGITAL', 'HOME', 'PERSONAL', 'ENTERTAINMENT']
+        .contains(ad.adType)) {
+      String details = '';
+      if (ad.brand != null && ad.model != null) {
+        details += 'محصول: ${ad.brand} ${ad.model}';
+      } else if (ad.brand != null) {
+        details += 'برند: ${ad.brand}';
+      }
+      return details.isNotEmpty ? details : 'جزئیات: نامشخص';
+    } else if (ad.adType == 'SERVICES') {
+      // Since no specific fields like serviceType or serviceDuration exist, use title or generic
+      return ad.description.isNotEmpty
+          ? 'توضیحات: ${ad.description}'
+          : 'جزئیات: نامشخص';
     }
     return 'جزئیات: نامشخص';
   }
@@ -437,6 +457,27 @@ class _HomeScreenState extends State<HomeScreen> {
         return 'سرگرمی و فراغت';
       default:
         return 'سایر';
+    }
+  }
+
+  IconData _getIconForAdType(String adType) {
+    switch (adType) {
+      case 'REAL_ESTATE':
+        return Icons.home;
+      case 'VEHICLE':
+        return Icons.directions_car;
+      case 'DIGITAL':
+        return Icons.devices;
+      case 'HOME':
+        return Icons.kitchen;
+      case 'SERVICES':
+        return Icons.build;
+      case 'PERSONAL':
+        return Icons.backpack;
+      case 'ENTERTAINMENT':
+        return Icons.sports_soccer;
+      default:
+        return Icons.category;
     }
   }
 }

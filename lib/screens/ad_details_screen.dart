@@ -195,6 +195,78 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
     }
   }
 
+  // Moved _buildFeatureCard before build to avoid reference error
+  Widget _buildFeatureCard(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required bool isAvailable,
+  }) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: isAvailable ? Colors.green : Colors.grey,
+              size: 28,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: isAvailable ? Colors.green : Colors.grey,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Moved _buildDetailItem before build to avoid reference error
+  Widget _buildDetailItem(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: Colors.red,
+          size: 20,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style:
+                Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ad = ModalRoute.of(context)!.settings.arguments as Ad;
@@ -231,11 +303,17 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
         ? '${numberFormatter.format(ad.totalPrice!)} تومان'
         : null;
 
-    final adCategory = ad.adType == 'REAL_ESTATE'
-        ? 'املاک'
-        : ad.adType == 'VEHICLE'
-            ? 'خودرو'
-            : 'سایر';
+    // Map adType to Persian labels
+    final adCategory = {
+          'REAL_ESTATE': 'املاک',
+          'VEHICLE': 'خودرو',
+          'DIGITAL': 'لوازم الکترونیکی',
+          'HOME': 'لوازم خانگی',
+          'PERSONAL': 'وسایل شخصی',
+          'ENTERTAINMENT': 'سرگرمی و فراغت',
+          'SERVICES': 'خدمات',
+        }[ad.adType] ??
+        'سایر';
 
     return Scaffold(
       appBar: AppBar(
@@ -703,6 +781,18 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                     ),
                     Divider(color: Colors.grey[300], thickness: 1),
                   ],
+                  if (ad.constructionYear != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildDetailItem(
+                        context,
+                        icon: Icons.calendar_today,
+                        label: 'سال ساخت',
+                        value: ad.constructionYear.toString(),
+                      ),
+                    ),
+                    Divider(color: Colors.grey[300], thickness: 1),
+                  ],
                   if (formattedTotalPrice != null) ...[
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
@@ -713,6 +803,7 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                         value: formattedTotalPrice,
                       ),
                     ),
+                    Divider(color: Colors.grey[300], thickness: 1),
                   ],
                   if (ad.realEstateType == 'RENT') ...[
                     if (formattedDeposit != null) ...[
@@ -754,60 +845,66 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildDetailItem(
-                      context,
-                      icon: Icons.directions_car,
-                      label: 'برند',
-                      value: ad.brand ?? 'نامشخص',
+                  if (ad.brand != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildDetailItem(
+                        context,
+                        icon: Icons.directions_car,
+                        label: 'برند',
+                        value: ad.brand!,
+                      ),
                     ),
-                  ),
-                  Divider(color: Colors.grey[300], thickness: 1),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildDetailItem(
-                      context,
-                      icon: Icons.model_training,
-                      label: 'مدل',
-                      value: ad.model ?? 'نامشخص',
+                    Divider(color: Colors.grey[300], thickness: 1),
+                  ],
+                  if (ad.model != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildDetailItem(
+                        context,
+                        icon: Icons.model_training,
+                        label: 'مدل',
+                        value: ad.model!,
+                      ),
                     ),
-                  ),
-                  Divider(color: Colors.grey[300], thickness: 1),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildDetailItem(
-                      context,
-                      icon: Icons.speed,
-                      label: 'کارکرد',
-                      value: ad.mileage != null
-                          ? '${numberFormatter.format(ad.mileage!)} کیلومتر'
-                          : 'نامشخص',
+                    Divider(color: Colors.grey[300], thickness: 1),
+                  ],
+                  if (ad.mileage != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildDetailItem(
+                        context,
+                        icon: Icons.speed,
+                        label: 'کارکرد',
+                        value: '${numberFormatter.format(ad.mileage!)} کیلومتر',
+                      ),
                     ),
-                  ),
-                  Divider(color: Colors.grey[300], thickness: 1),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildDetailItem(
-                      context,
-                      icon: Icons.color_lens,
-                      label: 'رنگ',
-                      value: ad.color ?? 'نامشخص',
+                    Divider(color: Colors.grey[300], thickness: 1),
+                  ],
+                  if (ad.color != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildDetailItem(
+                        context,
+                        icon: Icons.color_lens,
+                        label: 'رنگ',
+                        value: ad.color!,
+                      ),
                     ),
-                  ),
-                  Divider(color: Colors.grey[300], thickness: 1),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildDetailItem(
-                      context,
-                      icon: Icons.settings,
-                      label: 'نوع گیربکس',
-                      value: ad.gearbox != null
-                          ? (ad.gearbox == 'MANUAL' ? 'دستی' : 'اتوماتیک')
-                          : 'نامشخص',
+                    Divider(color: Colors.grey[300], thickness: 1),
+                  ],
+                  if (ad.gearbox != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildDetailItem(
+                        context,
+                        icon: Icons.settings,
+                        label: 'نوع گیربکس',
+                        value: ad.gearbox == 'MANUAL' ? 'دستی' : 'اتوماتیک',
+                      ),
                     ),
-                  ),
-                  Divider(color: Colors.grey[300], thickness: 1),
+                    Divider(color: Colors.grey[300], thickness: 1),
+                  ],
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _buildDetailItem(
@@ -818,60 +915,124 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                     ),
                   ),
                   Divider(color: Colors.grey[300], thickness: 1),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildDetailItem(
-                      context,
-                      icon: Icons.engineering,
-                      label: 'وضعیت موتور',
-                      value: ad.engineStatus != null
-                          ? (ad.engineStatus == 'HEALTHY'
-                              ? 'سالم'
-                              : 'نیاز به تعمیر')
-                          : 'نامشخص',
+                  if (ad.engineStatus != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildDetailItem(
+                        context,
+                        icon: Icons.engineering,
+                        label: 'وضعیت موتور',
+                        value: ad.engineStatus == 'HEALTHY'
+                            ? 'سالم'
+                            : 'نیاز به تعمیر',
+                      ),
                     ),
-                  ),
-                  Divider(color: Colors.grey[300], thickness: 1),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildDetailItem(
-                      context,
-                      icon: Icons.car_repair,
-                      label: 'وضعیت شاسی',
-                      value: ad.chassisStatus != null
-                          ? (ad.chassisStatus == 'HEALTHY' ? 'سالم' : 'تصادفی')
-                          : 'نامشخص',
+                    Divider(color: Colors.grey[300], thickness: 1),
+                  ],
+                  if (ad.chassisStatus != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildDetailItem(
+                        context,
+                        icon: Icons.car_repair,
+                        label: 'وضعیت شاسی',
+                        value:
+                            ad.chassisStatus == 'HEALTHY' ? 'سالم' : 'تصادفی',
+                      ),
                     ),
-                  ),
-                  Divider(color: Colors.grey[300], thickness: 1),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildDetailItem(
-                      context,
-                      icon: Icons.car_crash,
-                      label: 'وضعیت بدنه',
-                      value: ad.bodyStatus != null
-                          ? (ad.bodyStatus == 'HEALTHY'
-                              ? 'سالم'
-                              : ad.bodyStatus == 'MINOR_SCRATCH'
-                                  ? 'خط و خش جزیی'
-                                  : 'تصادفی')
-                          : 'نامشخص',
+                    Divider(color: Colors.grey[300], thickness: 1),
+                  ],
+                  if (ad.bodyStatus != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildDetailItem(
+                        context,
+                        icon: Icons.car_crash,
+                        label: 'وضعیت بدنه',
+                        value: ad.bodyStatus == 'HEALTHY'
+                            ? 'سالم'
+                            : ad.bodyStatus == 'MINOR_SCRATCH'
+                                ? 'خط و خش جزیی'
+                                : 'تصادفی',
+                      ),
                     ),
-                  ),
+                    Divider(color: Colors.grey[300], thickness: 1),
+                  ],
                 ],
               ),
-            ] else ...[
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildDetailItem(
-                  context,
-                  icon: Icons.attach_money,
-                  label: 'قیمت',
-                  value: formattedPrice,
-                ),
+            ] else if (['DIGITAL', 'HOME', 'PERSONAL', 'ENTERTAINMENT']
+                .contains(ad.adType)) ...[
+              Text(
+                'جزئیات محصول',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
               ),
-              Divider(color: Colors.grey[300], thickness: 1),
+              const SizedBox(height: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (ad.brand != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildDetailItem(
+                        context,
+                        icon: Icons.branding_watermark,
+                        label: 'برند',
+                        value: ad.brand!,
+                      ),
+                    ),
+                    Divider(color: Colors.grey[300], thickness: 1),
+                  ],
+                  if (ad.model != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildDetailItem(
+                        context,
+                        icon: Icons.model_training,
+                        label: 'مدل',
+                        value: ad.model!,
+                      ),
+                    ),
+                    Divider(color: Colors.grey[300], thickness: 1),
+                  ],
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildDetailItem(
+                      context,
+                      icon: Icons.attach_money,
+                      label: 'قیمت',
+                      value: formattedPrice,
+                    ),
+                  ),
+                  Divider(color: Colors.grey[300], thickness: 1),
+                ],
+              ),
+            ] else if (ad.adType == 'SERVICES') ...[
+              Text(
+                'جزئیات خدمات',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildDetailItem(
+                      context,
+                      icon: Icons.attach_money,
+                      label: 'هزینه',
+                      value: formattedPrice,
+                    ),
+                  ),
+                  Divider(color: Colors.grey[300], thickness: 1),
+                ],
+              ),
             ],
             const SizedBox(height: 16),
             Divider(color: Colors.grey[300], thickness: 1),
@@ -894,7 +1055,7 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      ad.description,
+                      ad.description ?? 'بدون توضیحات',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             fontSize: 14,
                             height: 1.5,
@@ -912,7 +1073,7 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
         color: Colors.white,
         elevation: 8,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
             children: [
               Expanded(
@@ -948,10 +1109,10 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                       builder: (context) => AlertDialog(
                         title: const Text('تماس با صاحب آگهی'),
                         content: Text(
-                          'شماره تماس: ${ad.ownerPhoneNumber}',
+                          'شماره تماس: ${ad.ownerPhoneNumber ?? 'نامشخص'}',
                           style:
                               Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    color: Colors.blue,
+                                    color: Colors.black,
                                   ),
                         ),
                         actions: [
@@ -981,77 +1142,6 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildFeatureCard(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required bool isAvailable,
-  }) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: isAvailable ? Colors.red : Colors.grey.withOpacity(0.5),
-              size: 28,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color:
-                        isAvailable ? Colors.red : Colors.grey.withOpacity(0.5),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailItem(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          color: Colors.red,
-          size: 24,
-        ),
-        const SizedBox(width: 8),
-        Text(
-          '$label: ',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style:
-                Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 14),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
     );
   }
 }

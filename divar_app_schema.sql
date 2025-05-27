@@ -56,7 +56,7 @@ CREATE TABLE `ad_images` (
   PRIMARY KEY (`image_id`),
   KEY `ad_id` (`ad_id`),
   CONSTRAINT `ad_images_ibfk_1` FOREIGN KEY (`ad_id`) REFERENCES `advertisements` (`ad_id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=59 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=67 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -65,7 +65,7 @@ CREATE TABLE `ad_images` (
 
 LOCK TABLES `ad_images` WRITE;
 /*!40000 ALTER TABLE `ad_images` DISABLE KEYS */;
-INSERT INTO `ad_images` VALUES (43,43,'http://localhost:5000/uploads/1748203166936-380507148.jpg'),(54,54,'http://localhost:5000/uploads/1748212582268-750145285.jpg'),(55,55,'http://localhost:5000/uploads/1748212662460-305145998.jpg'),(56,56,'http://localhost:5000/uploads/1748213112826-414043851.jpg'),(57,57,'http://localhost:5000/uploads/1748213156168-719564230.jpg'),(58,58,'http://localhost:5000/uploads/1748213203558-845328248.jpg');
+INSERT INTO `ad_images` VALUES (54,54,'http://localhost:5000/uploads/1748212582268-750145285.jpg'),(58,58,'http://localhost:5000/uploads/1748213203558-845328248.jpg'),(59,59,'http://localhost:5000/uploads/1748264569841-24630965.jpg'),(60,60,'http://localhost:5000/uploads/1748264642319-730126335.jpg'),(62,62,'http://localhost:5000/uploads/1748266610722-137423237.jpg'),(63,63,'http://localhost:5000/uploads/1748368142748-393013633.png'),(64,64,'http://localhost:5000/uploads/1748368181962-517272217.jpg'),(65,65,'http://localhost:5000/uploads/1748368231212-3228763.jpg'),(66,66,'http://localhost:5000/uploads/1748373378014-565598086.jpg');
 /*!40000 ALTER TABLE `ad_images` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -122,7 +122,7 @@ CREATE TABLE `advertisements` (
   CONSTRAINT `advertisements_ibfk_1` FOREIGN KEY (`owner_phone_number`) REFERENCES `users` (`phone_number`) ON DELETE CASCADE,
   CONSTRAINT `advertisements_ibfk_2` FOREIGN KEY (`province_id`) REFERENCES `provinces` (`province_id`) ON DELETE RESTRICT,
   CONSTRAINT `advertisements_ibfk_3` FOREIGN KEY (`city_id`) REFERENCES `cities` (`city_id`) ON DELETE RESTRICT
-) ENGINE=InnoDB AUTO_INCREMENT=59 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=67 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -131,7 +131,7 @@ CREATE TABLE `advertisements` (
 
 LOCK TABLES `advertisements` WRITE;
 /*!40000 ALTER TABLE `advertisements` DISABLE KEYS */;
-INSERT INTO `advertisements` VALUES (43,'bbb','VEHICLE','PENDING','09120212280',1,1,'bb','2025-05-25 19:59:26',122212),(54,'fds','VEHICLE','PENDING','09120212280',1,1,'fdsf','2025-05-25 22:36:22',2500),(55,'99','REAL_ESTATE','PENDING','09120212280',1,1,'99','2025-05-25 22:37:42',120),(56,'ew','REAL_ESTATE','PENDING','09120212280',1,1,'rew','2025-05-25 22:45:12',12222),(57,'231','REAL_ESTATE','PENDING','09120212280',1,1,'213','2025-05-25 22:45:56',2222222222),(58,'nh','VEHICLE','PENDING','09120212280',1,1,'nh','2025-05-25 22:46:43',123132);
+INSERT INTO `advertisements` VALUES (54,'fds','VEHICLE','PENDING','09120212280',1,1,'fdsf','2025-05-25 22:36:22',2500),(58,'nh','VEHICLE','PENDING','09120212280',1,1,'nh','2025-05-25 22:46:43',1500),(59,'111110','REAL_ESTATE','PENDING','09120212280',3,8,'11110','2025-05-26 13:02:49',120),(60,'2131','REAL_ESTATE','PENDING','09120212280',3,8,'15','2025-05-26 13:04:02',2000),(62,'165','REAL_ESTATE','PENDING','09120212210',1,1,'12516','2025-05-26 13:36:50',14520000),(63,'dsadsa','DIGITAL','PENDING','09120212280',1,1,'cdsds','2025-05-27 17:49:02',12000),(64,'ll','DIGITAL','PENDING','09120212280',1,1,'dsa','2025-05-27 17:49:42',1231),(65,'123','HOME','PENDING','09120212280',1,1,'123','2025-05-27 17:50:31',140000),(66,'fsd','SERVICES','PENDING','09120212280',1,1,'dfs','2025-05-27 19:16:18',121);
 /*!40000 ALTER TABLE `advertisements` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -153,7 +153,7 @@ CREATE TABLE `bookmarks` (
   KEY `idx_bookmarks_user_phone` (`user_phone_number`),
   CONSTRAINT `bookmarks_ibfk_1` FOREIGN KEY (`user_phone_number`) REFERENCES `users` (`phone_number`) ON DELETE CASCADE,
   CONSTRAINT `bookmarks_ibfk_2` FOREIGN KEY (`ad_id`) REFERENCES `advertisements` (`ad_id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -162,7 +162,7 @@ CREATE TABLE `bookmarks` (
 
 LOCK TABLES `bookmarks` WRITE;
 /*!40000 ALTER TABLE `bookmarks` DISABLE KEYS */;
-INSERT INTO `bookmarks` VALUES (22,'09120212280',57,'2025-05-25 22:46:10'),(23,'09120212280',58,'2025-05-26 12:13:24');
+INSERT INTO `bookmarks` VALUES (23,'09120212280',58,'2025-05-26 12:13:24'),(24,'09120212280',59,'2025-05-26 13:03:20'),(26,'09120212210',60,'2025-05-26 13:35:56');
 /*!40000 ALTER TABLE `bookmarks` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -212,7 +212,7 @@ CREATE TABLE `comments` (
   KEY `user_phone_number` (`user_phone_number`),
   CONSTRAINT `comments_ibfk_1` FOREIGN KEY (`ad_id`) REFERENCES `advertisements` (`ad_id`) ON DELETE CASCADE,
   CONSTRAINT `comments_ibfk_2` FOREIGN KEY (`user_phone_number`) REFERENCES `users` (`phone_number`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -221,8 +221,114 @@ CREATE TABLE `comments` (
 
 LOCK TABLES `comments` WRITE;
 /*!40000 ALTER TABLE `comments` DISABLE KEYS */;
-INSERT INTO `comments` VALUES (2,54,'09120212280','dsfdfsdfsd','2025-05-25 22:47:31'),(3,57,'09120212280','sdadasdadss','2025-05-25 22:47:50'),(4,56,'09120212280','ssssssssssssssssssssssssss','2025-05-25 22:47:56'),(5,55,'09120212280','sssssssssssssssssssss','2025-05-25 22:48:03'),(6,58,'09120212280','fffffffffffffffffffffffff','2025-05-25 22:48:26'),(7,43,'09120212280','fdsfsfds','2025-05-25 22:48:33'),(9,58,'09120212280','quick 2','2025-05-26 08:09:37'),(10,58,'09120212280','ffggffgfdgdf','2025-05-26 09:42:47'),(11,58,'09120212280','ds','2025-05-26 09:48:57'),(12,58,'09120212280','ewfdfsfsd','2025-05-26 10:10:24');
+INSERT INTO `comments` VALUES (9,58,'09120212280','quick 2','2025-05-26 08:09:37'),(10,58,'09120212280','ffggffgfdgdf','2025-05-26 09:42:47'),(11,58,'09120212280','ds','2025-05-26 09:48:57'),(15,60,'09120212210','1561116','2025-05-26 13:35:50'),(16,66,'09120212280','hdfds fhdu sfhshdfhsdfhdsfdsf uidshhfdshf','2025-05-27 19:49:21');
 /*!40000 ALTER TABLE `comments` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `digital_ads`
+--
+
+DROP TABLE IF EXISTS `digital_ads`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `digital_ads` (
+  `ad_id` int NOT NULL,
+  `brand` varchar(100) NOT NULL,
+  `model` varchar(100) NOT NULL,
+  `item_condition` enum('NEW','USED') NOT NULL DEFAULT 'NEW',
+  PRIMARY KEY (`ad_id`),
+  CONSTRAINT `digital_ads_ibfk_1` FOREIGN KEY (`ad_id`) REFERENCES `advertisements` (`ad_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `digital_ads`
+--
+
+LOCK TABLES `digital_ads` WRITE;
+/*!40000 ALTER TABLE `digital_ads` DISABLE KEYS */;
+INSERT INTO `digital_ads` VALUES (63,'fd','1400','NEW'),(64,'fdssa','1400','NEW');
+/*!40000 ALTER TABLE `digital_ads` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `entertainment_ads`
+--
+
+DROP TABLE IF EXISTS `entertainment_ads`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `entertainment_ads` (
+  `ad_id` int NOT NULL,
+  `brand` varchar(100) NOT NULL,
+  `model` varchar(100) NOT NULL,
+  `item_condition` enum('NEW','USED') NOT NULL DEFAULT 'NEW',
+  PRIMARY KEY (`ad_id`),
+  CONSTRAINT `entertainment_ads_ibfk_1` FOREIGN KEY (`ad_id`) REFERENCES `advertisements` (`ad_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `entertainment_ads`
+--
+
+LOCK TABLES `entertainment_ads` WRITE;
+/*!40000 ALTER TABLE `entertainment_ads` DISABLE KEYS */;
+/*!40000 ALTER TABLE `entertainment_ads` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `home_ads`
+--
+
+DROP TABLE IF EXISTS `home_ads`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `home_ads` (
+  `ad_id` int NOT NULL,
+  `brand` varchar(100) NOT NULL,
+  `model` varchar(100) NOT NULL,
+  `item_condition` enum('NEW','USED') NOT NULL DEFAULT 'NEW',
+  PRIMARY KEY (`ad_id`),
+  CONSTRAINT `home_ads_ibfk_1` FOREIGN KEY (`ad_id`) REFERENCES `advertisements` (`ad_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `home_ads`
+--
+
+LOCK TABLES `home_ads` WRITE;
+/*!40000 ALTER TABLE `home_ads` DISABLE KEYS */;
+INSERT INTO `home_ads` VALUES (65,'123','1400','NEW');
+/*!40000 ALTER TABLE `home_ads` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `personal_ads`
+--
+
+DROP TABLE IF EXISTS `personal_ads`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `personal_ads` (
+  `ad_id` int NOT NULL,
+  `brand` varchar(100) NOT NULL,
+  `model` varchar(100) NOT NULL,
+  `item_condition` enum('NEW','USED') NOT NULL DEFAULT 'NEW',
+  PRIMARY KEY (`ad_id`),
+  CONSTRAINT `personal_ads_ibfk_1` FOREIGN KEY (`ad_id`) REFERENCES `advertisements` (`ad_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `personal_ads`
+--
+
+LOCK TABLES `personal_ads` WRITE;
+/*!40000 ALTER TABLE `personal_ads` DISABLE KEYS */;
+/*!40000 ALTER TABLE `personal_ads` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -282,7 +388,7 @@ CREATE TABLE `real_estate_ads` (
 
 LOCK TABLES `real_estate_ads` WRITE;
 /*!40000 ALTER TABLE `real_estate_ads` DISABLE KEYS */;
-INSERT INTO `real_estate_ads` VALUES (55,'RENT',1400,1400,2,1,1,0,120,10,2,0,NULL),(56,'RENT',140,1400,1,1,0,0,12222,121,1,NULL,NULL),(57,'SALE',123,1400,12,1,1,1,NULL,NULL,2,2222222222,118);
+INSERT INTO `real_estate_ads` VALUES (59,'SALE',10,1400,2,1,0,0,NULL,NULL,2,120,200),(60,'RENT',22,1400,2,1,0,0,2000,120,3,0,90),(62,'SALE',120,1400,2,1,1,0,NULL,NULL,2,14520000,121000);
 /*!40000 ALTER TABLE `real_estate_ads` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -316,6 +422,32 @@ LOCK TABLES `recent_visits` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `services_ads`
+--
+
+DROP TABLE IF EXISTS `services_ads`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `services_ads` (
+  `ad_id` int NOT NULL,
+  `service_type` varchar(100) NOT NULL,
+  `service_duration` int DEFAULT NULL,
+  PRIMARY KEY (`ad_id`),
+  CONSTRAINT `services_ads_ibfk_1` FOREIGN KEY (`ad_id`) REFERENCES `advertisements` (`ad_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `services_ads`
+--
+
+LOCK TABLES `services_ads` WRITE;
+/*!40000 ALTER TABLE `services_ads` DISABLE KEYS */;
+INSERT INTO `services_ads` VALUES (66,'dfdddddddddddddddddddddd',12212);
+/*!40000 ALTER TABLE `services_ads` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `users`
 --
 
@@ -346,7 +478,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES ('09120212280','کیوان','وفایی','کیوی',1,1,'LEVEL_1','2025-05-25 19:53:50');
+INSERT INTO `users` VALUES ('09120212210','000','000000','000000000',1,1,'LEVEL_1','2025-05-26 13:05:38'),('09120212280','کیوان','وفایی','کیوی',1,1,'LEVEL_1','2025-05-25 19:53:50');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -379,7 +511,7 @@ CREATE TABLE `vehicle_ads` (
 
 LOCK TABLES `vehicle_ads` WRITE;
 /*!40000 ALTER TABLE `vehicle_ads` DISABLE KEYS */;
-INSERT INTO `vehicle_ads` VALUES (43,122,'2312','sa','1400','MANUAL','HEALTHY','HEALTHY','HEALTHY',122212),(54,21,'231','saipa','1400','MANUAL','HEALTHY','HEALTHY','MINOR_SCRATCH',2500),(58,32,'23','dsf','1400','MANUAL','HEALTHY','HEALTHY','HEALTHY',123132);
+INSERT INTO `vehicle_ads` VALUES (54,21,'231','saipa','1400','MANUAL','HEALTHY','HEALTHY','MINOR_SCRATCH',2500),(58,32,'23','dsf','1400','MANUAL','HEALTHY','HEALTHY','HEALTHY',1500);
 /*!40000 ALTER TABLE `vehicle_ads` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -392,4 +524,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-05-26  5:22:52
+-- Dump completed on 2025-05-27 13:31:22

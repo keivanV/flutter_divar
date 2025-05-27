@@ -32,6 +32,10 @@ class _PostAdScreenState extends State<PostAdScreen>
   final _mileageController = TextEditingController();
   final _colorController = TextEditingController();
   final _basePriceController = TextEditingController();
+  final _conditionController = TextEditingController();
+  final _serviceTypeController = TextEditingController();
+  final _serviceDurationController = TextEditingController();
+
   String? _category;
   String? _realEstateType;
   int? _provinceId;
@@ -43,6 +47,7 @@ class _PostAdScreenState extends State<PostAdScreen>
   String _engineStatus = 'HEALTHY';
   String _chassisStatus = 'HEALTHY';
   String _bodyStatus = 'HEALTHY';
+  String _condition = 'NEW';
 
   List<File> _images = [];
   late AnimationController _animationController;
@@ -63,6 +68,11 @@ class _PostAdScreenState extends State<PostAdScreen>
     {'id': 'RENT', 'name': 'اجاره'},
   ];
 
+  final List<Map<String, dynamic>> conditionTypes = [
+    {'id': 'NEW', 'name': 'نو'},
+    {'id': 'USED', 'name': 'کارکرده'},
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -79,7 +89,6 @@ class _PostAdScreenState extends State<PostAdScreen>
     _monthlyRentController.addListener(_formatNumber);
     _basePriceController.addListener(_formatNumber);
 
-    // لود کردن استان‌ها در زمان اولیه‌سازی
     final adProvider = Provider.of<AdProvider>(context, listen: false);
     adProvider.fetchProvinces();
   }
@@ -104,6 +113,9 @@ class _PostAdScreenState extends State<PostAdScreen>
     _colorController.dispose();
     _basePriceController.removeListener(_formatNumber);
     _basePriceController.dispose();
+    _conditionController.dispose();
+    _serviceTypeController.dispose();
+    _serviceDurationController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -183,7 +195,8 @@ class _PostAdScreenState extends State<PostAdScreen>
       );
     }
   }
- Future<void> _submit() async {
+
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -248,8 +261,14 @@ class _PostAdScreenState extends State<PostAdScreen>
             ? _monthlyRentController.text.replaceAll(',', '')
             : null,
         floor: _category == 'REAL_ESTATE' ? _floorController.text : null,
-        brand: _category == 'VEHICLE' ? _brandController.text : null,
-        model: _category == 'VEHICLE' ? _modelController.text : null,
+        brand: ['VEHICLE', 'DIGITAL', 'HOME', 'PERSONAL', 'ENTERTAINMENT']
+                .contains(_category)
+            ? _brandController.text
+            : null,
+        model: ['VEHICLE', 'DIGITAL', 'HOME', 'PERSONAL', 'ENTERTAINMENT']
+                .contains(_category)
+            ? _modelController.text
+            : null,
         mileage: _category == 'VEHICLE' ? _mileageController.text : null,
         color: _category == 'VEHICLE' ? _colorController.text : null,
         gearbox: _category == 'VEHICLE' ? _gearbox : null,
@@ -259,6 +278,7 @@ class _PostAdScreenState extends State<PostAdScreen>
         engineStatus: _category == 'VEHICLE' ? _engineStatus : null,
         chassisStatus: _category == 'VEHICLE' ? _chassisStatus : null,
         bodyStatus: _category == 'VEHICLE' ? _bodyStatus : null,
+
       );
 
       if (adProvider.errorMessage == null) {
@@ -434,6 +454,7 @@ class _PostAdScreenState extends State<PostAdScreen>
                             setState(() {
                               _category = value;
                               _realEstateType = null;
+                              _condition = 'NEW';
                             });
                           },
                           validator: (value) {
@@ -444,339 +465,400 @@ class _PostAdScreenState extends State<PostAdScreen>
                           },
                         ),
                         if (_category == 'REAL_ESTATE') ...[
-  const SizedBox(height: 20),
-  _buildDropdownField<String>(
-    label: 'نوع معامله',
-    icon: Icons.swap_horiz,
-    value: _realEstateType,
-    items: realEstateTypes
-        .map((type) => DropdownMenuItem<String>(
-              value: type['id'],
-              child: Text(type['name']),
-            ))
-        .toList(),
-    onChanged: (value) {
-      setState(() {
-        _realEstateType = value;
-      });
-    },
-    validator: (value) {
-      if (value == null) {
-        return 'لطفاً نوع معامله را انتخاب کنید';
-      }
-      return null;
-    },
-  ),
-  const SizedBox(height: 20),
-  _buildTextField(
-    controller: _areaController,
-    label: 'مساحت (متر مربع)',
-    icon: Icons.square_foot,
-    keyboardType: TextInputType.number,
-    validator: (value) {
-      if (value == null || value.isEmpty) {
-        return 'لطفاً مساحت را وارد کنید';
-      }
-      final number = int.tryParse(value);
-      if (number == null || number <= 0) {
-        return 'لطفاً یک عدد معتبر وارد کنید';
-      }
-      return null;
-    },
-  ),
-  const SizedBox(height: 20),
-  _buildTextField(
-    controller: _constructionYearController,
-    label: 'سال ساخت',
-    icon: Icons.calendar_today,
-    keyboardType: TextInputType.number,
-    validator: (value) {
-      if (value == null || value.isEmpty) {
-        return 'لطفاً سال ساخت را وارد کنید';
-      }
-      return null;
-    },
-  ),
-  const SizedBox(height: 20),
-  _buildTextField(
-    controller: _roomsController,
-    label: 'تعداد اتاق',
-    icon: Icons.king_bed,
-    keyboardType: TextInputType.number,
-    validator: (value) {
-      if (value == null || value.isEmpty) {
-        return 'لطفاً تعداد اتاق را وارد کنید';
-      }
-      final number = int.tryParse(value);
-      if (number == null || number < 0) {
-        return 'لطفاً یک عدد معتبر وارد کنید';
-      }
-      return null;
-    },
-  ),
-
-  // فقط برای SALE نمایش داده شود
-  if (_realEstateType == 'SALE') ...[
-    const SizedBox(height: 20),
-    _buildTextField(
-      controller: _priceController,
-      label: 'قیمت کل (تومان)',
-      icon: Icons.attach_money,
-      keyboardType: TextInputType.number,
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'لطفاً قیمت را وارد کنید';
-        }
-        final number = int.tryParse(value.replaceAll(',', ''));
-        if (number == null || number < 0) {
-          return 'لطفاً یک عدد معتبر وارد کنید';
-        }
-        return null;
-      },
-    ),
-  ],
-
-  // فقط برای RENT نمایش داده شود
-  if (_realEstateType == 'RENT') ...[
-    const SizedBox(height: 20),
-    _buildTextField(
-      controller: _depositController,
-      label: 'ودیعه (تومان)',
-      icon: Icons.account_balance_wallet,
-      keyboardType: TextInputType.number,
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'لطفاً ودیعه را وارد کنید';
-        }
-        final number = int.tryParse(value.replaceAll(',', ''));
-        if (number != null && number < 0) {
-          return 'لطفاً یک عدد معتبر وارد کنید';
-        }
-        return null;
-      },
-    ),
-    const SizedBox(height: 20),
-    _buildTextField(
-      controller: _monthlyRentController,
-      label: 'اجاره ماهانه (تومان)',
-      icon: Icons.attach_money,
-      keyboardType: TextInputType.number,
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'لطفاً اجاره ماهانه را وارد کنید';
-        }
-        final number = int.tryParse(value.replaceAll(',', ''));
-        if (number != null && number < 0) {
-          return 'لطفاً یک عدد معتبر وارد کنید';
-        }
-        return null;
-      },
-    ),
-  ],
-
-  const SizedBox(height: 20),
-  _buildTextField(
-    controller: _floorController,
-    label: 'طبقه',
-    icon: Icons.elevator,
-    keyboardType: TextInputType.number,
-    validator: (value) {
-      if (value == null || value.isEmpty) {
-        return 'لطفاً طبقه را وارد کنید';
-      }
-      final number = int.tryParse(value);
-      if (number == null) {
-        return 'لطفاً یک عدد معتبر وارد کنید';
-      }
-      return null;
-    },
-  ),
-  const SizedBox(height: 20),
-  CheckboxListTile(
-    title: const Text('پارکینگ'),
-    value: _hasParking,
-    onChanged: (value) {
-      setState(() {
-        _hasParking = value!;
-      });
-    },
-  ),
-  CheckboxListTile(
-    title: const Text('انباری'),
-    value: _hasStorage,
-    onChanged: (value) {
-      setState(() {
-        _hasStorage = value!;
-      });
-    },
-  ),
-  CheckboxListTile(
-    title: const Text('بالکن'),
-    value: _hasBalcony,
-    onChanged: (value) {
-      setState(() {
-        _hasBalcony = value!;
-      });
-    },
-  ),
-]
- else if (_category == 'VEHICLE') ...[
-  const SizedBox(height: 20),
-  _buildTextField(
-    controller: _brandController,
-    label: 'برند خودرو',
-    icon: Icons.directions_car,
-    validator: (value) {
-      if (value == null || value.isEmpty) {
-        return 'لطفاً برند خودرو را وارد کنید';
-      }
-      return null;
-    },
-  ),
-  const SizedBox(height: 20),
-  _buildTextField(
-    controller: _modelController,
-    label: 'مدل خودرو',
-    icon: Icons.car_repair,
-    validator: (value) {
-      if (value == null || value.isEmpty) {
-        return 'لطفاً مدل خودرو را وارد کنید';
-      }
-      return null;
-    },
-  ),
-  const SizedBox(height: 20),
-  _buildTextField(
-    controller: _mileageController,
-    label: 'کارکرد (کیلومتر)',
-    icon: Icons.speed,
-    keyboardType: TextInputType.number,
-    validator: (value) {
-      if (value == null || value.isEmpty) {
-        return 'لطفاً کارکرد خودرو را وارد کنید';
-      }
-      final number = int.tryParse(value);
-      if (number == null || number < 0) {
-        return 'لطفاً یک عدد معتبر وارد کنید';
-      }
-      return null;
-    },
-  ),
-  const SizedBox(height: 20),
-  _buildTextField(
-    controller: _colorController,
-    label: 'رنگ خودرو',
-    icon: Icons.color_lens,
-    validator: (value) {
-      if (value == null || value.isEmpty) {
-        return 'لطفاً رنگ خودرو را وارد کنید';
-      }
-      return null;
-    },
-  ),
-  const SizedBox(height: 20),
-  _buildTextField(
-    controller: _basePriceController,
-    label: 'قیمت پایه (تومان)',
-    icon: Icons.attach_money,
-    keyboardType: TextInputType.number,
-    validator: (value) {
-      if (value == null || value.isEmpty) {
-        return 'لطفاً قیمت پایه خودرو را وارد کنید';
-      }
-      final number = int.tryParse(value.replaceAll(',', ''));
-      if (number == null || number < 0) {
-        return 'لطفاً یک عدد معتبر وارد کنید';
-      }
-      return null;
-    },
-  ),
-  const SizedBox(height: 20),
-  _buildDropdownField<String>(
-    label: 'نوع گیربکس',
-    icon: Icons.settings,
-    value: _gearbox,
-    items: const [
-      DropdownMenuItem(value: 'MANUAL', child: Text('دستی')),
-      DropdownMenuItem(value: 'AUTOMATIC', child: Text('اتوماتیک')),
-    ],
-    onChanged: (value) {
-      setState(() {
-        _gearbox = value!;
-      });
-    },
-    validator: (value) {
-      if (value == null) {
-        return 'لطفاً نوع گیربکس را انتخاب کنید';
-      }
-      return null;
-    },
-  ),
-  const SizedBox(height: 20),
-  _buildDropdownField<String>(
-    label: 'وضعیت موتور',
-    icon: Icons.engineering,
-    value: _engineStatus,
-    items: const [
-      DropdownMenuItem(value: 'HEALTHY', child: Text('سالم')),
-      DropdownMenuItem(value: 'NEEDS_REPAIR', child: Text('نیاز به تعمیر')),
-    ],
-    onChanged: (value) {
-      setState(() {
-        _engineStatus = value!;
-      });
-    },
-    validator: (value) {
-      if (value == null) {
-        return 'لطفاً وضعیت موتور را انتخاب کنید';
-      }
-      return null;
-    },
-  ),
-  const SizedBox(height: 20),
-  _buildDropdownField<String>(
-    label: 'وضعیت شاسی',
-    icon: Icons.car_crash,
-    value: _chassisStatus,
-    items: const [
-      DropdownMenuItem(value: 'HEALTHY', child: Text('سالم')),
-      DropdownMenuItem(value: 'IMPACTED', child: Text('تصادفی')),
-    ],
-    onChanged: (value) {
-      setState(() {
-        _chassisStatus = value!;
-      });
-    },
-    validator: (value) {
-      if (value == null) {
-        return 'لطفاً وضعیت شاسی را انتخاب کنید';
-      }
-      return null;
-    },
-  ),
-  const SizedBox(height: 20),
-  _buildDropdownField<String>(
-    label: 'وضعیت بدنه',
-    icon: Icons.directions_car_filled,
-    value: _bodyStatus,
-    items: const [
-      DropdownMenuItem(value: 'HEALTHY', child: Text('سالم')),
-      DropdownMenuItem(value: 'MINOR_SCRATCH', child: Text('خط و خش جزیی')),
-      DropdownMenuItem(value: 'ACCIDENTED', child: Text('تصادفی')),
-    ],
-    onChanged: (value) {
-      setState(() {
-        _bodyStatus = value!;
-      });
-    },
-    validator: (value) {
-      if (value == null) {
-        return 'لطفاً وضعیت بدنه را انتخاب کنید';
-      }
-      return null;
-    },
-  ),
-] else ...[
+                          const SizedBox(height: 20),
+                          _buildDropdownField<String>(
+                            label: 'نوع معامله',
+                            icon: Icons.swap_horiz,
+                            value: _realEstateType,
+                            items: realEstateTypes
+                                .map((type) => DropdownMenuItem<String>(
+                                      value: type['id'],
+                                      child: Text(type['name']),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _realEstateType = value;
+                              });
+                            },
+                            validator: (value) {
+                              if (value == null) {
+                                return 'لطفاً نوع معامله را انتخاب کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            controller: _areaController,
+                            label: 'مساحت (متر مربع)',
+                            icon: Icons.square_foot,
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'لطفاً مساحت را وارد کنید';
+                              }
+                              final number = int.tryParse(value);
+                              if (number == null || number <= 0) {
+                                return 'لطفاً یک عدد معتبر وارد کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            controller: _constructionYearController,
+                            label: 'سال ساخت',
+                            icon: Icons.calendar_today,
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'لطفاً سال ساخت را وارد کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            controller: _roomsController,
+                            label: 'تعداد اتاق',
+                            icon: Icons.king_bed,
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'لطفاً تعداد اتاق را وارد کنید';
+                              }
+                              final number = int.tryParse(value);
+                              if (number == null || number < 0) {
+                                return 'لطفاً یک عدد معتبر وارد کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                          if (_realEstateType == 'SALE') ...[
+                            const SizedBox(height: 20),
+                            _buildTextField(
+                              controller: _priceController,
+                              label: 'قیمت کل (تومان)',
+                              icon: Icons.attach_money,
+                              keyboardType: TextInputType.number,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'لطفاً قیمت را وارد کنید';
+                                }
+                                final number =
+                                    int.tryParse(value.replaceAll(',', ''));
+                                if (number == null || number < 0) {
+                                  return 'لطفاً یک عدد معتبر وارد کنید';
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                          if (_realEstateType == 'RENT') ...[
+                            const SizedBox(height: 20),
+                            _buildTextField(
+                              controller: _depositController,
+                              label: 'ودیعه (تومان)',
+                              icon: Icons.account_balance_wallet,
+                              keyboardType: TextInputType.number,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'لطفاً ودیعه را وارد کنید';
+                                }
+                                final number =
+                                    int.tryParse(value.replaceAll(',', ''));
+                                if (number != null && number < 0) {
+                                  return 'لطفاً یک عدد معتبر وارد کنید';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 20),
+                            _buildTextField(
+                              controller: _monthlyRentController,
+                              label: 'اجاره ماهانه (تومان)',
+                              icon: Icons.attach_money,
+                              keyboardType: TextInputType.number,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'لطفاً اجاره ماهانه را وارد کنید';
+                                }
+                                final number =
+                                    int.tryParse(value.replaceAll(',', ''));
+                                if (number != null && number < 0) {
+                                  return 'لطفاً یک عدد معتبر وارد کنید';
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            controller: _floorController,
+                            label: 'طبقه',
+                            icon: Icons.elevator,
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'لطفاً طبقه را وارد کنید';
+                              }
+                              final number = int.tryParse(value);
+                              if (number == null) {
+                                return 'لطفاً یک عدد معتبر وارد کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          CheckboxListTile(
+                            title: const Text('پارکینگ'),
+                            value: _hasParking,
+                            onChanged: (value) {
+                              setState(() {
+                                _hasParking = value!;
+                              });
+                            },
+                          ),
+                          CheckboxListTile(
+                            title: const Text('انباری'),
+                            value: _hasStorage,
+                            onChanged: (value) {
+                              setState(() {
+                                _hasStorage = value!;
+                              });
+                            },
+                          ),
+                          CheckboxListTile(
+                            title: const Text('بالکن'),
+                            value: _hasBalcony,
+                            onChanged: (value) {
+                              setState(() {
+                                _hasBalcony = value!;
+                              });
+                            },
+                          ),
+                        ] else if (_category == 'VEHICLE') ...[
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            controller: _brandController,
+                            label: 'برند خودرو',
+                            icon: Icons.directions_car,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'لطفاً برند خودرو را وارد کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            controller: _modelController,
+                            label: 'مدل خودرو',
+                            icon: Icons.car_repair,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'لطفاً مدل خودرو را وارد کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            controller: _mileageController,
+                            label: 'کارکرد (کیلومتر)',
+                            icon: Icons.speed,
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'لطفاً کارکرد خودرو را وارد کنید';
+                              }
+                              final number = int.tryParse(value);
+                              if (number == null || number < 0) {
+                                return 'لطفاً یک عدد معتبر وارد کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            controller: _colorController,
+                            label: 'رنگ خودرو',
+                            icon: Icons.color_lens,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'لطفاً رنگ خودرو را وارد کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            controller: _basePriceController,
+                            label: 'قیمت پایه (تومان)',
+                            icon: Icons.attach_money,
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'لطفاً قیمت پایه خودرو را وارد کنید';
+                              }
+                              final number =
+                                  int.tryParse(value.replaceAll(',', ''));
+                              if (number == null || number < 0) {
+                                return 'لطفاً یک عدد معتبر وارد کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildDropdownField<String>(
+                            label: 'نوع گیربکس',
+                            icon: Icons.settings,
+                            value: _gearbox,
+                            items: const [
+                              DropdownMenuItem(
+                                  value: 'MANUAL', child: Text('دستی')),
+                              DropdownMenuItem(
+                                  value: 'AUTOMATIC', child: Text('اتوماتیک')),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _gearbox = value!;
+                              });
+                            },
+                            validator: (value) {
+                              if (value == null) {
+                                return 'لطفاً نوع گیربکس را انتخاب کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildDropdownField<String>(
+                            label: 'وضعیت موتور',
+                            icon: Icons.engineering,
+                            value: _engineStatus,
+                            items: const [
+                              DropdownMenuItem(
+                                  value: 'HEALTHY', child: Text('سالم')),
+                              DropdownMenuItem(
+                                  value: 'NEEDS_REPAIR',
+                                  child: Text('نیاز به تعمیر')),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _engineStatus = value!;
+                              });
+                            },
+                            validator: (value) {
+                              if (value == null) {
+                                return 'لطفاً وضعیت موتور را انتخاب کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildDropdownField<String>(
+                            label: 'وضعیت شاسی',
+                            icon: Icons.car_crash,
+                            value: _chassisStatus,
+                            items: const [
+                              DropdownMenuItem(
+                                  value: 'HEALTHY', child: Text('سالم')),
+                              DropdownMenuItem(
+                                  value: 'IMPACTED', child: Text('تصادفی')),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _chassisStatus = value!;
+                              });
+                            },
+                            validator: (value) {
+                              if (value == null) {
+                                return 'لطفاً وضعیت شاسی را انتخاب کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildDropdownField<String>(
+                            label: 'وضعیت بدنه',
+                            icon: Icons.directions_car_filled,
+                            value: _bodyStatus,
+                            items: const [
+                              DropdownMenuItem(
+                                  value: 'HEALTHY', child: Text('سالم')),
+                              DropdownMenuItem(
+                                  value: 'MINOR_SCRATCH',
+                                  child: Text('خط و خش جزیی')),
+                              DropdownMenuItem(
+                                  value: 'ACCIDENTED', child: Text('تصادفی')),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _bodyStatus = value!;
+                              });
+                            },
+                            validator: (value) {
+                              if (value == null) {
+                                return 'لطفاً وضعیت بدنه را انتخاب کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                        ] else if ([
+                          'DIGITAL',
+                          'HOME',
+                          'PERSONAL',
+                          'ENTERTAINMENT'
+                        ].contains(_category)) ...[
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            controller: _brandController,
+                            label: 'برند',
+                            icon: Icons.branding_watermark,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'لطفاً برند را وارد کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            controller: _modelController,
+                            label: 'مدل',
+                            icon: Icons.model_training,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'لطفاً مدل را وارد کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildDropdownField<String>(
+                            label: 'وضعیت',
+                            icon: Icons.check_circle,
+                            value: _condition,
+                            items: conditionTypes
+                                .map((type) => DropdownMenuItem<String>(
+                                      value: type['id'],
+                                      child: Text(type['name']),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _condition = value!;
+                              });
+                            },
+                            validator: (value) {
+                              if (value == null) {
+                                return 'لطفاً وضعیت را انتخاب کنید';
+                              }
+                              return null;
+                            },
+                          ),
                           const SizedBox(height: 20),
                           _buildTextField(
                             controller: _priceController,
@@ -786,6 +868,53 @@ class _PostAdScreenState extends State<PostAdScreen>
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'لطفاً قیمت را وارد کنید';
+                              }
+                              final number =
+                                  int.tryParse(value.replaceAll(',', ''));
+                              if (number == null || number < 0) {
+                                return 'لطفاً یک عدد معتبر وارد کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                        ] else if (_category == 'SERVICES') ...[
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            controller: _serviceTypeController,
+                            label: 'نوع خدمت',
+                            icon: Icons.work,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'لطفاً نوع خدمت را وارد کنید';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            controller: _serviceDurationController,
+                            label: 'مدت زمان خدمت (اختیاری)',
+                            icon: Icons.timer,
+                            validator: (value) {
+                              if (value != null && value.isNotEmpty) {
+                                final number = int.tryParse(value);
+                                if (number == null || number <= 0) {
+                                  return 'لطفاً یک عدد معتبر وارد کنید';
+                                }
+                              }
+                              return null;
+                            },
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            controller: _priceController,
+                            label: 'هزینه خدمت (تومان)',
+                            icon: Icons.attach_money,
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'لطفاً هزینه خدمت را وارد کنید';
                               }
                               final number =
                                   int.tryParse(value.replaceAll(',', ''));

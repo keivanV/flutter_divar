@@ -54,8 +54,7 @@ class ApiService {
     }
   }
 
-
-Future<void> updateAd({required Map<String, dynamic> adData}) async {
+  Future<void> updateAd({required Map<String, dynamic> adData}) async {
     final adId = adData['ad_id'] as int?;
     final title = adData['title'] as String?;
     final description = adData['description'] as String?;
@@ -72,7 +71,8 @@ Future<void> updateAd({required Map<String, dynamic> adData}) async {
     if (description == null || description.isEmpty) {
       throw Exception('توضیحات آگهی نمی‌تواند خالی باشد');
     }
-    if (adType == null || !['VEHICLE', 'REAL_ESTATE', 'OTHER'].contains(adType)) {
+    if (adType == null ||
+        !['VEHICLE', 'REAL_ESTATE', 'OTHER'].contains(adType)) {
       throw Exception('نوع آگهی نامعتبر است');
     }
     if (phoneNumber == null || phoneNumber.isEmpty) {
@@ -379,60 +379,61 @@ Future<void> updateAd({required Map<String, dynamic> adData}) async {
       throw Exception('Failed to post comment: $e');
     }
   }
-Future<List<Ad>> fetchAdsByIds(List<int> adIds) async {
-  try {
-    final uri = Uri.parse('$apiBaseUrl/users/ads/by-ids');
 
-    final response = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'ad_ids': adIds}),
-    );
+  Future<List<Ad>> fetchAdsByIds(List<int> adIds) async {
+    try {
+      final uri = Uri.parse('$apiBaseUrl/users/ads/by-ids');
 
-    if (response.statusCode == 200) {
-      final List<dynamic> jsonList = jsonDecode(response.body);
-      return jsonList.map((json) => Ad.fromJson(json)).toList();
-    } else {
-      throw Exception('Failed to fetch ads by IDs: ${response.statusCode}');
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'ad_ids': adIds}),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonList = jsonDecode(response.body);
+        return jsonList.map((json) => Ad.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to fetch ads by IDs: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error fetching ads by IDs: $e');
     }
-  } catch (e) {
-    throw Exception('Error fetching ads by IDs: $e');
   }
-}
 
-Future<List<Comment>> getUserComments(String userPhoneNumber, {String? adType}) async {
-  try {
-    final queryParams = {
-      if (adType != null) 'ad_type': adType,
-    };
-    final uri = Uri.parse('$apiBaseUrl/users/$userPhoneNumber/comments')
-        .replace(queryParameters: queryParams);
-    final response = await http.get(
-      uri,
-      headers: {'Accept': 'application/json; charset=utf-8'},
-    );
+  Future<List<Comment>> getUserComments(String userPhoneNumber,
+      {String? adType}) async {
+    try {
+      final queryParams = {
+        if (adType != null) 'ad_type': adType,
+      };
+      final uri = Uri.parse('$apiBaseUrl/users/$userPhoneNumber/comments')
+          .replace(queryParameters: queryParams);
+      final response = await http.get(
+        uri,
+        headers: {'Accept': 'application/json; charset=utf-8'},
+      );
 
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      return data.map((json) => Comment.fromJson(json)).toList();
-    } else {
-      throw Exception(
-          'Failed to load user comments: ${response.statusCode} ${response.body}');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => Comment.fromJson(json)).toList();
+      } else {
+        throw Exception(
+            'Failed to load user comments: ${response.statusCode} ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Failed to fetch user comments: $e');
     }
-  } catch (e) {
-    throw Exception('Failed to fetch user comments: $e');
   }
-}
 
   Future<List<Comment>> getComments(int? adId, {int offset = 0}) async {
     final uri = adId == null
-            ? Uri.parse('$apiBaseUrl/admin/comments?offset=$offset')
-            : Uri.parse('$apiBaseUrl/ads/$adId/comments?offset=$offset');
+        ? Uri.parse('$apiBaseUrl/admin/comments?offset=$offset')
+        : Uri.parse('$apiBaseUrl/ads/$adId/comments?offset=$offset');
 
     print(' [!] DEBUG   $adId');
 
     // final uri = Uri.parse('$apiBaseUrl/ads/$adId/comments?offset=$offset');
-
 
     final response = await http.get(
       uri,

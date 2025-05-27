@@ -26,6 +26,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     'PERSONAL',
     'ENTERTAINMENT',
   ];
+  int _displayLimit = 20; // Initial number of ads to display
+  bool _isLoadingMore = false;
+  bool _isFetchingAds = false;
 
   @override
   void initState() {
@@ -40,15 +43,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final adProvider = Provider.of<AdProvider>(context, listen: false);
       final commentProvider =
           Provider.of<CommentProvider>(context, listen: false);
-      adProvider.fetchAds(); // Fetch all ads initially
+      print('Fetching all ads with no filters...');
+      adProvider
+          .fetchAds(adType: null, provinceId: null, cityId: null, sortBy: null)
+          .then((_) {
+        print('Initial ads fetched: ${adProvider.ads.length}');
+        final adTypes = adProvider.ads.map((ad) => ad.adType).toSet();
+        print('Initial ad types: $adTypes');
+      });
       commentProvider.fetchComments(null, offset: 0).then((_) {
-        // After comments are fetched, fetch ads for comment adIds
         final adIds = commentProvider.comments
             .map((comment) => comment.adId)
             .toSet()
             .toList();
+        print('Fetching ads for ${adIds.length} commented ad IDs...');
         for (var adId in adIds) {
-          adProvider.fetchAdById(adId); // Fetch missing ads
+          adProvider.fetchAdById(adId);
         }
       });
     });
@@ -69,7 +79,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
       return;
     }
-    print('Opening comments dialog for adId: $adId'); // Debug
+    print('Opening comments dialog for adId: $adId');
     showDialog(
       context: context,
       builder: (context) {
@@ -142,13 +152,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             await Future.wait([
                               commentProvider.fetchCommentsByAdId(adId),
                               commentProvider.fetchComments(null, offset: 0),
-                              adProvider.fetchAds(),
+                              adProvider.fetchAds(
+                                  adType: _selectedAdType,
+                                  provinceId: null,
+                                  cityId: null,
+                                  sortBy: null),
                               adminProvider.fetchTopCommentedAd(context),
                               adminProvider.fetchCommentsCount(context,
                                   adType: _selectedAdType),
                               adminProvider.fetchAdsCount(context,
                                   adType: _selectedAdType),
                             ]);
+                            final adIds = commentProvider.comments
+                                .map((c) => c.adId)
+                                .toSet()
+                                .toList();
+                            for (var adId in adIds) {
+                              adProvider.fetchAdById(adId);
+                            }
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -204,6 +225,43 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         .length;
   }
 
+  void _loadMoreAds() {
+    setState(() {
+      _displayLimit += 20;
+      print('Loading more ads, new limit: $_displayLimit');
+    });
+  }
+
+  void _refreshAllAds() async {
+    final adProvider = Provider.of<AdProvider>(context, listen: false);
+    setState(() {
+      _displayLimit = 20;
+      _selectedAdType = null;
+      _isFetchingAds = true;
+      print('Refreshing all ads...');
+    });
+    await adProvider.fetchAds(
+        adType: null, provinceId: null, cityId: null, sortBy: null);
+    setState(() {
+      _isFetchingAds = false;
+    });
+    print('Ads refreshed: ${adProvider.ads.length}');
+    final adTypes = adProvider.ads.map((ad) => ad.adType).toSet();
+    print('Ad types after refresh: $adTypes');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'لیست آگهی‌ها به‌روزرسانی شد',
+            style: TextStyle(fontFamily: 'Vazir'),
+            textDirection: TextDirection.rtl,
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -228,27 +286,63 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
       body: Consumer3<AdminProvider, AdProvider, CommentProvider>(
         builder: (context, adminProvider, adProvider, commentProvider, child) {
-          if (adminProvider.isLoading || commentProvider.isLoading) {
+          if (adminProvider.isLoading ||
+              adProvider.isLoading ||
+              _isFetchingAds) {
             return const Center(
                 child: CircularProgressIndicator(color: Colors.red));
           }
           if (adminProvider.errorMessage != null) {
             return Center(
-              child: Text(
-                adminProvider.errorMessage!,
-                style: const TextStyle(
-                    fontFamily: 'Vazir', fontSize: 16, color: Colors.red),
-                textDirection: TextDirection.rtl,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    adminProvider.errorMessage!,
+                    style: const TextStyle(
+                        fontFamily: 'Vazir', fontSize: 16, color: Colors.red),
+                    textDirection: TextDirection.rtl,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _refreshAllAds,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red[700],
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text(
+                      'تلاش مجدد',
+                      style: TextStyle(fontFamily: 'Vazir'),
+                    ),
+                  ),
+                ],
               ),
             );
           }
-          if (commentProvider.errorMessage != null) {
+          if (adProvider.errorMessage != null) {
             return Center(
-              child: Text(
-                commentProvider.errorMessage!,
-                style: const TextStyle(
-                    fontFamily: 'Vazir', fontSize: 16, color: Colors.red),
-                textDirection: TextDirection.rtl,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    adProvider.errorMessage!,
+                    style: const TextStyle(
+                        fontFamily: 'Vazir', fontSize: 16, color: Colors.red),
+                    textDirection: TextDirection.rtl,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _refreshAllAds,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red[700],
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text(
+                      'تلاش مجدد',
+                      style: TextStyle(fontFamily: 'Vazir'),
+                    ),
+                  ),
+                ],
               ),
             );
           }
@@ -260,6 +354,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ad.adType == _selectedAdType ||
                       (ad.adType == 'SERVICE' && _selectedAdType == 'SERVICES'))
                   .toList();
+          print('Total ads available: ${adProvider.ads.length}');
+          print(
+              'Filtered ads for ${_selectedAdType ?? 'ALL'}: ${filteredAds.length}');
+          final adTypes = adProvider.ads.map((ad) => ad.adType).toSet();
+          print('Ad types in list: $adTypes');
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
@@ -336,46 +435,85 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.grey.withOpacity(0.2),
-                          blurRadius: 8,
-                          spreadRadius: 2)
-                    ],
-                  ),
-                  child: DropdownButton<String>(
-                    value: _selectedAdType,
-                    hint: const Text(
-                      'فیلتر نوع آگهی',
-                      style: TextStyle(fontFamily: 'Vazir', color: Colors.grey),
-                      textDirection: TextDirection.rtl,
-                    ),
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    items: _adTypes.map((type) {
-                      return DropdownMenuItem(
-                        value: type == 'ALL' ? null : type,
-                        child: Text(
-                          type == 'ALL' ? 'همه' : _getCategoryName(type),
-                          style: const TextStyle(fontFamily: 'Vazir'),
-                          textDirection: TextDirection.rtl,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                                color: Colors.grey.withOpacity(0.2),
+                                blurRadius: 8,
+                                spreadRadius: 2)
+                          ],
                         ),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedAdType = value;
-                      });
-                      adminProvider.fetchAdsCount(context, adType: value);
-                      adminProvider.fetchCommentsCount(context, adType: value);
-                    },
-                  ),
+                        child: DropdownButton<String>(
+                          value: _selectedAdType,
+                          hint: const Text(
+                            'فیلتر نوع آگهی',
+                            style: TextStyle(
+                                fontFamily: 'Vazir', color: Colors.grey),
+                            textDirection: TextDirection.rtl,
+                          ),
+                          isExpanded: true,
+                          underline: const SizedBox(),
+                          items: _adTypes.map((type) {
+                            return DropdownMenuItem(
+                              value: type == 'ALL' ? null : type,
+                              child: Text(
+                                type == 'ALL' ? 'همه' : _getCategoryName(type),
+                                style: const TextStyle(fontFamily: 'Vazir'),
+                                textDirection: TextDirection.rtl,
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) async {
+                            setState(() {
+                              _selectedAdType = value;
+                              _displayLimit = 20;
+                              _isFetchingAds = true;
+                              print('Filter changed to: $value');
+                            });
+                            final adProvider =
+                                Provider.of<AdProvider>(context, listen: false);
+                            await adProvider.fetchAds(
+                                adType: value,
+                                provinceId: null,
+                                cityId: null,
+                                sortBy: null);
+                            adminProvider.fetchAdsCount(context, adType: value);
+                            adminProvider.fetchCommentsCount(context,
+                                adType: value);
+                            setState(() {
+                              _isFetchingAds = false;
+                            });
+                            print(
+                                'Ads fetched for $value: ${adProvider.ads.length}');
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: _refreshAllAds,
+                      icon: const FaIcon(FontAwesomeIcons.sync, size: 16),
+                      label: const Text(
+                        'نمایش همه آگهی‌ها',
+                        style: TextStyle(fontFamily: 'Vazir'),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red[700],
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 24),
                 _buildSectionCard(
@@ -470,104 +608,167 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 const SizedBox(height: 24),
                 _buildSectionCard(
                   title: 'حذف آگهی‌ها',
-                  children: filteredAds.isEmpty
-                      ? [
+                  children: [
+                    if (filteredAds.isEmpty)
+                      Column(
+                        children: [
                           const Text(
                             'هیچ آگهی‌ای یافت نشد',
                             style: TextStyle(
                                 fontFamily: 'Vazir', color: Colors.grey),
                             textDirection: TextDirection.rtl,
                           ),
-                        ]
-                      : filteredAds.map((ad) {
-                          return ListTile(
-                            leading: Icon(FontAwesomeIcons.ad,
-                                color: Colors.blue[600]),
-                            title: Text(
-                              ad.title,
-                              style: const TextStyle(fontFamily: 'Vazir'),
-                              textDirection: TextDirection.rtl,
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  _getCategoryName(ad.adType),
-                                  style: const TextStyle(
-                                      fontFamily: 'Vazir', color: Colors.grey),
-                                  textDirection: TextDirection.rtl,
-                                ),
-                                Text(
-                                  'تعداد کامنت‌ها: ${_getCommentCountForAd(ad.adId, commentProvider)}',
-                                  style: const TextStyle(
-                                      fontFamily: 'Vazir', color: Colors.grey),
-                                  textDirection: TextDirection.rtl,
-                                ),
-                              ],
-                            ),
-                            trailing: IconButton(
-                              icon: const FaIcon(FontAwesomeIcons.trash,
-                                  color: Colors.red),
-                              onPressed: () async {
-                                final adminProvider =
-                                    Provider.of<AdminProvider>(context,
-                                        listen: false);
-                                final commentProvider =
-                                    Provider.of<CommentProvider>(context,
-                                        listen: false);
-                                final adProvider = Provider.of<AdProvider>(
-                                    context,
-                                    listen: false);
-
-                                final success = await adminProvider.deleteAd(
-                                    context, ad.adId);
-                                if (success) {
-                                  // Refresh all relevant data
-                                  await Future.wait([
-                                    adProvider.fetchAds(),
-                                    commentProvider.fetchComments(null,
-                                        offset: 0),
-                                    adminProvider.fetchTopCommentedAd(context),
-                                    adminProvider.fetchAdsCount(context,
-                                        adType: _selectedAdType),
-                                    adminProvider.fetchCommentsCount(context,
-                                        adType: _selectedAdType),
-                                  ]);
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'آگهی حذف شد',
-                                          style: TextStyle(fontFamily: 'Vazir'),
-                                          textDirection: TextDirection.rtl,
-                                        ),
-                                        backgroundColor: Colors.green,
-                                      ),
-                                    );
-                                  }
-                                } else {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          adminProvider.errorMessage ??
-                                              'خطا در حذف',
-                                          style: const TextStyle(
-                                              fontFamily: 'Vazir'),
-                                          textDirection: TextDirection.rtl,
-                                        ),
-                                        backgroundColor: Colors.red,
-                                      ),
-                                    );
-                                  }
-                                }
-                              },
-                            ),
-                            onTap: () {
-                              _showCommentsDialog(context, ad.adId, ad.title);
+                          const SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: () async {
+                              setState(() {
+                                _isFetchingAds = true;
+                              });
+                              await Provider.of<AdProvider>(context,
+                                      listen: false)
+                                  .fetchAds(
+                                      adType: _selectedAdType,
+                                      provinceId: null,
+                                      cityId: null,
+                                      sortBy: null);
+                              setState(() {
+                                _isFetchingAds = false;
+                              });
                             },
-                          );
-                        }).toList(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red[700],
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text(
+                              'تلاش مجدد برای بارگذاری آگهی‌ها',
+                              style: TextStyle(fontFamily: 'Vazir'),
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      ...filteredAds.take(_displayLimit).map((ad) {
+                        return ListTile(
+                          leading: Icon(FontAwesomeIcons.ad,
+                              color: Colors.blue[600]),
+                          title: Text(
+                            ad.title,
+                            style: const TextStyle(fontFamily: 'Vazir'),
+                            textDirection: TextDirection.rtl,
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                _getCategoryName(ad.adType),
+                                style: const TextStyle(
+                                    fontFamily: 'Vazir', color: Colors.grey),
+                                textDirection: TextDirection.rtl,
+                              ),
+                              Text(
+                                'تعداد کامنت‌ها: ${_getCommentCountForAd(ad.adId, commentProvider)}',
+                                style: const TextStyle(
+                                    fontFamily: 'Vazir', color: Colors.grey),
+                                textDirection: TextDirection.rtl,
+                              ),
+                            ],
+                          ),
+                          trailing: IconButton(
+                            icon: const FaIcon(FontAwesomeIcons.trash,
+                                color: Colors.red),
+                            onPressed: () async {
+                              final adminProvider = Provider.of<AdminProvider>(
+                                  context,
+                                  listen: false);
+                              final commentProvider =
+                                  Provider.of<CommentProvider>(context,
+                                      listen: false);
+                              final adProvider = Provider.of<AdProvider>(
+                                  context,
+                                  listen: false);
+
+                              final success = await adminProvider.deleteAd(
+                                  context, ad.adId);
+                              if (success) {
+                                await Future.wait([
+                                  adProvider.fetchAds(
+                                      adType: _selectedAdType,
+                                      provinceId: null,
+                                      cityId: null,
+                                      sortBy: null),
+                                  commentProvider.fetchComments(null,
+                                      offset: 0),
+                                  adminProvider.fetchTopCommentedAd(context),
+                                  adminProvider.fetchAdsCount(context,
+                                      adType: _selectedAdType),
+                                  adminProvider.fetchCommentsCount(context,
+                                      adType: _selectedAdType),
+                                ]);
+                                final adIds = commentProvider.comments
+                                    .map((c) => c.adId)
+                                    .toSet()
+                                    .toList();
+                                for (var adId in adIds) {
+                                  adProvider.fetchAdById(adId);
+                                }
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'آگهی حذف شد',
+                                        style: TextStyle(fontFamily: 'Vazir'),
+                                        textDirection: TextDirection.rtl,
+                                      ),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              } else {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        adminProvider.errorMessage ??
+                                            'خطا در حذف',
+                                        style: const TextStyle(
+                                            fontFamily: 'Vazir'),
+                                        textDirection: TextDirection.rtl,
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                          onTap: () {
+                            _showCommentsDialog(context, ad.adId, ad.title);
+                          },
+                        );
+                      }).toList(),
+                    if (filteredAds.length > _displayLimit)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Center(
+                          child: _isLoadingMore
+                              ? const CircularProgressIndicator(
+                                  color: Colors.red)
+                              : ElevatedButton(
+                                  onPressed: _loadMoreAds,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red[700],
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  child: const Text(
+                                    'نمایش آگهی‌های بیشتر',
+                                    style: TextStyle(fontFamily: 'Vazir'),
+                                  ),
+                                ),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 24),
                 _buildSectionCard(
@@ -645,18 +846,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               final success = await adminProvider.deleteComment(
                                   context, comment.commentId);
                               if (success) {
-                                // Refresh all relevant data
                                 await Future.wait([
                                   commentProvider.fetchComments(null,
                                       offset: 0),
-                                  adProvider.fetchAds(),
+                                  adProvider.fetchAds(
+                                      adType: _selectedAdType,
+                                      provinceId: null,
+                                      cityId: null,
+                                      sortBy: null),
                                   adminProvider.fetchTopCommentedAd(context),
                                   adminProvider.fetchCommentsCount(context,
                                       adType: _selectedAdType),
                                   adminProvider.fetchAdsCount(context,
                                       adType: _selectedAdType),
                                 ]);
-                                // Fetch ads for remaining comments
                                 final adIds = commentProvider.comments
                                     .map((c) => c.adId)
                                     .toSet()
@@ -751,8 +954,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildSectionCard(
-      {required String title, required List<Widget> children}) {
+  Widget _buildSectionCard({
+    required String title,
+    required List<Widget> children,
+  }) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       decoration: BoxDecoration(

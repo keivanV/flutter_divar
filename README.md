@@ -73,6 +73,7 @@ Note : Default user / pass For adminPannel : admin / admin
       <td><img src="project_images/screen12.png" alt="Admin Panel 1" width="300"/></td>
       <td><img src="project_images/screen13.png" alt="Admin Panel 2" width="300"/></td>
       <td><img src="project_images/screen14.png" alt="Admin Panel 3" width="300"/></td>
+      <td><img src="project_images/screen15.png" alt="Admin Panel 3" width="300"/></td>
     </tr>
   </table>
 </div>

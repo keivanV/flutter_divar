@@ -1,21 +1,23 @@
 const db = require('../config/db');
 const bcrypt = require('bcrypt');
+const moment = require('moment-timezone');
+
 
 const adminController = {
   async login(req, res) {
     try {
       const { username, password } = req.body;
-      console.log('Login attempt:', { username, password }); // Added
+      console.log('Login attempt:', { username, password });
       if (!username || !password) {
         return res.status(400).json({ message: 'نام کاربری و رمز عبور الزامی است' });
       }
       const admin = await db('admins').where({ username }).first();
       if (!admin) {
-        console.log('Admin not found for username:', username); // Added
+        console.log('Admin not found for username:', username);
         return res.status(401).json({ message: 'نام کاربری یا رمز عبور اشتباه است' });
       }
       const isMatch = await bcrypt.compare(password, admin.password);
-      console.log('Password match:', isMatch, 'Stored hash:', admin.password); // Added
+      console.log('Password match:', isMatch, 'Stored hash:', admin.password);
       if (!isMatch) {
         return res.status(401).json({ message: 'نام کاربری یا رمز عبور اشتباه است' });
       }
@@ -25,8 +27,7 @@ const adminController = {
       res.status(500).json({ message: 'خطای سرور' });
     }
   },
-
-  async getUsersCount(req, res) {
+async getUsersCount(req, res) {
     try {
       const adminId = req.headers['x-admin-id'];
       if (!adminId || isNaN(adminId)) {
@@ -36,15 +37,68 @@ const adminController = {
       if (!admin) {
         return res.status(401).json({ message: 'ادمین نامعتبر است' });
       }
-      const [{ count }] = await db('users').count('* as count');
-      res.json({ totalUsers: Number(count) });
+      const { time_period } = req.query;
+
+      // تنظیم منطقه زمانی به تهران
+      const tehranTime = moment().tz('Asia/Tehran');
+      const today = tehranTime.format('YYYY-MM-DD');
+
+      // Get total users
+      const [{ totalUsers }] = await db('users').count('* as totalUsers');
+
+      let statsQuery;
+      let stats = [];
+
+      switch (time_period) {
+        case 'day':
+          statsQuery = db('users')
+            .select(db.raw('HOUR(created_at) as hour'))
+            .count('* as count')
+            .whereRaw('DATE(created_at) = ?', [today])
+            .groupByRaw('HOUR(created_at)')
+            .orderBy('hour', 'asc');
+          break;
+        case 'week':
+          const startOfWeek = tehranTime.clone().startOf('week').format('YYYY-MM-DD'); // شنبه
+          statsQuery = db('users')
+            .select(db.raw('DATE(created_at) as date'))
+            .count('* as count')
+            .whereBetween('created_at', [startOfWeek, today])
+            .groupByRaw('DATE(created_at)')
+            .orderBy('date', 'asc');
+          break;
+        case 'month':
+          statsQuery = db('users')
+            .select(db.raw('DATE_FORMAT(created_at, "%Y-%m") as date'))
+            .count('* as count')
+            .where('created_at', '>=', db.raw('DATE_SUB(CURDATE(), INTERVAL 12 MONTH)'))
+            .groupByRaw('DATE_FORMAT(created_at, "%Y-%m")')
+            .orderBy('date', 'desc')
+            .limit(12);
+          break;
+        case 'year':
+          statsQuery = db('users')
+            .select(db.raw('YEAR(created_at) as date'))
+            .count('* as count')
+            .where('created_at', '>=', db.raw('DATE_SUB(CURDATE(), INTERVAL 5 YEAR)'))
+            .groupByRaw('YEAR(created_at)')
+            .orderBy('date', 'desc')
+            .limit(5);
+          break;
+        default:
+          return res.json({ totalUsers: Number(totalUsers) });
+      }
+
+      stats = await statsQuery;
+      console.log(`User stats for ${time_period}:`, stats);
+      res.json({ totalUsers: Number(totalUsers), stats });
     } catch (error) {
       console.error('خطا در دریافت تعداد کاربران:', error);
       res.status(500).json({ message: 'خطای سرور' });
     }
   },
 
-  async getAdsCount(req, res) {
+async getAdsCount(req, res) {
     try {
       const adminId = req.headers['x-admin-id'];
       if (!adminId || isNaN(adminId)) {
@@ -54,22 +108,73 @@ const adminController = {
       if (!admin) {
         return res.status(401).json({ message: 'ادمین نامعتبر است' });
       }
-      const { ad_type } = req.query;
-      let query = db('advertisements')
+      const { ad_type, time_period } = req.query;
+
+      // تنظیم منطقه زمانی به تهران
+      const tehranTime = moment().tz('Asia/Tehran');
+      const today = tehranTime.format('YYYY-MM-DD');
+
+      // دریافت تعداد کلی آگهی‌ها بر اساس نوع
+      let countQuery = db('advertisements')
         .select('ad_type')
         .count('* as count')
         .groupBy('ad_type');
       if (ad_type) {
-        query = query.where({ ad_type });
+        countQuery = countQuery.where({ ad_type });
       }
-      const counts = await query;
-      res.json(counts);
+      const adCounts = await countQuery;
+
+      let statsQuery;
+      let stats = [];
+
+      switch (time_period) {
+        case 'day':
+          statsQuery = db('advertisements')
+            .select(db.raw('HOUR(created_at) as hour'))
+            .count('* as count')
+            .whereRaw('DATE(created_at) = ?', [today])
+            .groupByRaw('HOUR(created_at)')
+            .orderBy('hour', 'asc');
+          break;
+        case 'week':
+          // بازه هفته از شنبه تا امروز
+          const startOfWeek = tehranTime.clone().startOf('week').format('YYYY-MM-DD'); // شنبه
+          statsQuery = db('advertisements')
+            .select(db.raw('DATE(created_at) as date'))
+            .count('* as count')
+            .whereRaw('DATE(created_at) BETWEEN ? AND ?', [startOfWeek, today])
+            .groupByRaw('DATE(created_at)')
+            .orderBy('date', 'asc');
+          break;
+        case 'month':
+          // بازه ۱۲ ماه گذشته
+          statsQuery = db('advertisements')
+            .select(db.raw('DATE_FORMAT(created_at, "%Y-%m") as date'))
+            .count('* as count')
+            .whereRaw('created_at >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)')
+            .groupByRaw('DATE_FORMAT(created_at, "%Y-%m")')
+            .orderBy('date', 'asc'); // تغییر به asc برای نمایش از قدیمی
+          break;
+        case 'year':
+          statsQuery = db('advertisements')
+            .select(db.raw('YEAR(created_at) as date'))
+            .count('* as count')
+            .whereRaw('created_at >= DATE_SUB(CURDATE(), INTERVAL 5 YEAR)')
+            .groupByRaw('YEAR(created_at)')
+            .orderBy('date', 'asc');
+          break;
+        default:
+          return res.json(adCounts);
+      }
+
+      stats = await statsQuery;
+      console.log(`Ad stats for ${time_period}:`, stats);
+      res.json({ adCounts, stats });
     } catch (error) {
       console.error('خطا در دریافت تعداد آگهی‌ها:', error);
       res.status(500).json({ message: 'خطای سرور' });
     }
   },
-
   async getCommentsCount(req, res) {
     try {
       const adminId = req.headers['x-admin-id'];
@@ -165,7 +270,6 @@ const adminController = {
     }
   },
 
-  // متد جدید برای دریافت آگهی‌ها با تعداد کامنت‌ها
   async getAdsWithCommentCount(req, res) {
     try {
       const adminId = req.headers['x-admin-id'];
@@ -208,79 +312,62 @@ const adminController = {
     }
   },
 
-
-
-    async getAllComments(req, res) {
+  async getAllComments(req, res) {
     try {
-        const adminId = req.headers['x-admin-id'];
-        if (!adminId || isNaN(adminId)) {
+      const adminId = req.headers['x-admin-id'];
+      if (!adminId || isNaN(adminId)) {
         return res.status(401).json({ message: 'شناسه ادمین نامعتبر است' });
-        }
-        const admin = await db('admins').where({ admin_id: adminId }).first();
-        if (!admin) {
+      }
+      const admin = await db('admins').where({ admin_id: adminId }).first();
+      if (!admin) {
         return res.status(401).json({ message: 'ادمین نامعتبر است' });
-        }
-        const { offset = 0 } = req.query;
-        const comments = await db('comments')
+      }
+      const { offset = 0 } = req.query;
+      const comments = await db('comments')
         .select('comment_id', 'ad_id', 'user_phone_number', 'content', 'created_at')
         .offset(offset)
-        .limit(50); // Limit to prevent large responses
-        res.json(comments);
+        .limit(50);
+      res.json(comments);
     } catch (error) {
-        console.error('خطا در دریافت همه کامنت‌ها:', error);
-        res.status(500).json({ message: 'خطای سرور' });
+      console.error('خطا در دریافت همه کامنت‌ها:', error);
+      res.status(500).json({ message: 'خطای سرور' });
     }
-    },
+  },
 
-
-
-  // متد جدید برای دریافت کامنت‌های یک آگهی
-async getCommentsByAdId(req, res) {
-  try {
-
-    console.log("*****************************");
-
-
-    const adminId = req.headers['x-admin-id'];
-
-    if (!adminId || isNaN(adminId)) {
-      return res.status(401).json({ message: 'شناسه ادمین نامعتبر است' });
+  async getCommentsByAdId(req, res) {
+    try {
+      console.log("*****************************");
+      const adminId = req.headers['x-admin-id'];
+      if (!adminId || isNaN(adminId)) {
+        return res.status(401).json({ message: 'شناسه ادمین نامعتبر است' });
+      }
+      const admin = await db('admins').where({ admin_id: adminId }).first();
+      if (!admin) {
+        return res.status(401).json({ message: 'ادمین نامعتبر است' });
+      }
+      const { adId } = req.params;
+      const parsedAdId = parseInt(adId);
+      if (!parsedAdId || isNaN(parsedAdId)) {
+        return res.status(400).json({ message: 'شناسه آگهی نامعتبر است' });
+      }
+      const comments = await db('comments as c')
+        .leftJoin('users as u', 'c.user_phone_number', 'u.phone_number')
+        .where('c.ad_id', parsedAdId)
+        .select(
+          'c.comment_id',
+          'c.ad_id',
+          'c.user_phone_number',
+          'u.nickname',
+          'c.content',
+          'c.created_at'
+        )
+        .orderBy('c.created_at', 'desc');
+      res.status(200).json(comments);
+    } catch (error) {
+      console.error('خطا در دریافت کامنت‌های آگهی:', error);
+      res.status(500).json({ message: `خطای سرور: ${error.message}` });
     }
-
-    const admin = await db('admins').where({ admin_id: adminId }).first();
-
-
-    if (!admin) {
-      return res.status(401).json({ message: 'ادمین نامعتبر است' });
-    }
-
-    const { adId } = req.params;
-    const parsedAdId = parseInt(adId);
-
-    if (!parsedAdId || isNaN(parsedAdId)) {
-      return res.status(400).json({ message: 'شناسه آگهی نامعتبر است' });
-    }
-
-    const comments = await db('comments as c')
-      .leftJoin('users as u', 'c.user_phone_number', 'u.phone_number')
-      .where('c.ad_id', parsedAdId)
-      .select(
-        'c.comment_id',
-        'c.ad_id',
-        'c.user_phone_number',
-        'u.nickname',
-        'c.content',
-        'c.created_at'
-      )
-      .orderBy('c.created_at', 'desc');
-
-    res.status(200).json(comments);
-  } catch (error) {
-    console.error('خطا در دریافت کامنت‌های آگهی:', error);
-    res.status(500).json({ message: `خطای سرور: ${error.message}` });
   }
-}
-
 };
 
 module.exports = adminController;

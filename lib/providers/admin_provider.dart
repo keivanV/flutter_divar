@@ -12,6 +12,8 @@ class AdminProvider with ChangeNotifier {
   List<Map<String, dynamic>> _adsCount = [];
   List<Map<String, dynamic>> _commentsCount = [];
   Map<String, dynamic>? _topCommentedAd;
+  List<Map<String, dynamic>> _userStats = [];
+  List<Map<String, dynamic>> _adStats = [];
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -19,19 +21,25 @@ class AdminProvider with ChangeNotifier {
   List<Map<String, dynamic>> get adsCount => _adsCount;
   List<Map<String, dynamic>> get commentsCount => _commentsCount;
   Map<String, dynamic>? get topCommentedAd => _topCommentedAd;
+  List<Map<String, dynamic>> get userStats => _userStats;
+  List<Map<String, dynamic>> get adStats => _adStats;
 
-  Future<void> fetchUsersCount(BuildContext context) async {
+  Future<void> fetchUsersCount(BuildContext context,
+      {String timePeriod = 'day'}) async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
     try {
       final adminId = Provider.of<AuthProvider>(context, listen: false).adminId;
       if (adminId == null) throw Exception('شناسه ادمین وجود ندارد');
       final response = await http.get(
-        Uri.parse('$_apiBaseUrl/admin/users/count'),
+        Uri.parse('$_apiBaseUrl/admin/users/count?time_period=$timePeriod'),
         headers: {'x-admin-id': adminId.toString()},
       );
       if (response.statusCode == 200) {
-        _totalUsers = jsonDecode(response.body)['totalUsers'];
+        final data = jsonDecode(response.body);
+        _totalUsers = data['totalUsers'];
+        _userStats = List<Map<String, dynamic>>.from(data['stats']);
       } else {
         _errorMessage = jsonDecode(response.body)['message'];
       }
@@ -42,19 +50,24 @@ class AdminProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> fetchAdsCount(BuildContext context, {String? adType}) async {
+  Future<void> fetchAdsCount(BuildContext context,
+      {String? adType, String timePeriod = 'day'}) async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
     try {
       final adminId = Provider.of<AuthProvider>(context, listen: false).adminId;
       if (adminId == null) throw Exception('شناسه ادمین وجود ندارد');
-      final query = adType != null ? '?ad_type=$adType' : '';
+      final query = adType != null ? 'ad_type=$adType&' : '';
       final response = await http.get(
-        Uri.parse('$_apiBaseUrl/admin/ads/count$query'),
-        headers: {'x-admin-id': adminId.toString()},
+        Uri.parse(
+            '$_apiBaseUrl/admin/ads/count?${query}time_period=$timePeriod'),
+        headers: {'x-admin-id': adType != null ? adType : adminId.toString()},
       );
       if (response.statusCode == 200) {
-        _adsCount = List<Map<String, dynamic>>.from(jsonDecode(response.body));
+        final data = jsonDecode(response.body);
+        _adsCount = List<Map<String, dynamic>>.from(data['adCounts']);
+        _adStats = List<Map<String, dynamic>>.from(data['stats']);
       } else {
         _errorMessage = jsonDecode(response.body)['message'];
       }
@@ -68,6 +81,7 @@ class AdminProvider with ChangeNotifier {
   Future<void> fetchCommentsCount(BuildContext context,
       {String? adType}) async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
     try {
       final adminId = Provider.of<AuthProvider>(context, listen: false).adminId;
@@ -92,6 +106,7 @@ class AdminProvider with ChangeNotifier {
 
   Future<void> fetchTopCommentedAd(BuildContext context) async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
     try {
       final adminId = Provider.of<AuthProvider>(context, listen: false).adminId;

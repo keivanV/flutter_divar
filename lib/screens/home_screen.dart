@@ -1,13 +1,13 @@
 import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:divar_app/models/ad.dart';
+import 'package:divar_app/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/ad_provider.dart';
-import '../providers/auth_provider.dart';
-import '../widgets/custom_app_bar.dart';
 import '../screens/ad_details_screen.dart';
+import '../widgets/custom_app_bar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -40,11 +40,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Animation<double>? _blinkAnimation;
   Animation<Color?>? _colorAnimation;
   int? _promoAdIndex;
+  late Future<Map<String, dynamic>> _promoAdFuture;
+  final _apiService = ApiService();
 
   @override
   void initState() {
     super.initState();
-    // Initialize card animation controller for promotional ad
+    // انیمیشن کارت
     _cardAnimationController = AnimationController(
       duration: const Duration(milliseconds: 1000),
       vsync: this,
@@ -60,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
     _cardAnimationController!.forward();
 
-    // Initialize text animation controller for blinking and color change
+    // انیمیشن متن
     _textAnimationController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
@@ -84,20 +86,31 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
     ]).animate(_textAnimationController!);
 
+    // گرفتن تبلیغ
+    _promoAdFuture = _apiService.fetchPromoAd();
+
+    // لود آگهی‌ها
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      print('HomeScreen initState: Fetching initial ads');
       final adProvider = Provider.of<AdProvider>(context, listen: false);
       if (adProvider.ads.isEmpty) {
-        adProvider.fetchAds(
+        adProvider
+            .fetchAds(
           provinceId: adProvider.selectedProvinceId,
           cityId: adProvider.selectedCityId,
           adType: adProvider.adType,
-        );
+        )
+            .then((_) {
+          setState(() {
+            _promoAdIndex = adProvider.ads.isNotEmpty
+                ? Random().nextInt(adProvider.ads.length + 1)
+                : 0;
+          });
+        });
+      } else {
+        setState(() {
+          _promoAdIndex = Random().nextInt(adProvider.ads.length + 1);
+        });
       }
-      // Set random index for promotional ad
-      setState(() {
-        _promoAdIndex = Random().nextInt(adProvider.ads.length + 1);
-      });
     });
   }
 
@@ -130,34 +143,42 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final chipWidth =
-        (screenWidth - 32 - 16) / 3; // 32 for padding, 16 for spacing
+    final chipWidth = (screenWidth - 32 - 16) / 3;
 
     return Scaffold(
       appBar: const CustomAppBar(),
-      body: Consumer<AdProvider>(
-        builder: (context, adProvider, child) {
-          print('HomeScreen Consumer rebuilt: ads=${adProvider.ads.length}, '
-              'provinceId=${adProvider.selectedProvinceId}, '
-              'cityId=${adProvider.selectedCityId}, '
-              'adType=${adProvider.adType}');
-          // Update promo ad index when ads list changes
-          if (_promoAdIndex == null || _promoAdIndex! > adProvider.ads.length) {
-            _promoAdIndex = Random().nextInt(adProvider.ads.length + 1);
+      body:
+          Selector<AdProvider, (List<Ad>, bool, String?, String?, int?, int?)>(
+        selector: (_, provider) => (
+          provider.ads,
+          provider.isLoading,
+          provider.errorMessage,
+          provider.adType,
+          provider.selectedProvinceId,
+          provider.selectedCityId
+        ),
+        builder: (context, data, child) {
+          final (ads, isLoading, errorMessage, adType, provinceId, cityId) =
+              data;
+          print('بازسازی Selector: آگهی‌ها=${ads.length}, نوع=$adType');
+
+          // آپدیت شاخص تبلیغ
+          if (_promoAdIndex == null || _promoAdIndex! > ads.length) {
+            _promoAdIndex =
+                ads.isNotEmpty ? Random().nextInt(ads.length + 1) : 0;
           }
+
           return Column(
             children: [
-              // Category Filter
+              // فیلتر دسته‌بندی
               Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: categories.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final category = entry.value;
-                    final isSelected = adProvider.adType == category['id'];
+                  children: categories.map((category) {
+                    final isSelected = adType == category['id'];
                     return SizedBox(
                       width: chipWidth,
                       child: ChoiceChip(
@@ -206,11 +227,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         ),
                         onSelected: (selected) {
                           if (selected) {
-                            print('Selected category: ${category['id']}');
-                            adProvider.setFilters(
+                            print('دسته انتخاب شد: ${category['id']}');
+                            Provider.of<AdProvider>(context, listen: false)
+                                .setFilters(
                               adType: category['id'] as String?,
-                              provinceId: adProvider.selectedProvinceId,
-                              cityId: adProvider.selectedCityId,
+                              provinceId: provinceId,
+                              cityId: cityId,
                             );
                           }
                         },
@@ -219,11 +241,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   }).toList(),
                 ),
               ),
-              // Ads List
+              // لیست آگهی‌ها
               Expanded(
-                child: adProvider.isLoading
+                child: isLoading
                     ? const Center(child: CircularProgressIndicator())
-                    : adProvider.errorMessage != null
+                    : errorMessage != null
                         ? Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -232,17 +254,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                     size: 64, color: Colors.red),
                                 const SizedBox(height: 16),
                                 Text(
-                                  adProvider.errorMessage!,
+                                  errorMessage,
                                   style: const TextStyle(
                                       fontSize: 16, fontFamily: 'Vazir'),
+                                  textAlign: TextAlign.center,
                                 ),
                                 const SizedBox(height: 16),
                                 ElevatedButton(
                                   onPressed: () {
-                                    adProvider.fetchAds(
-                                      provinceId: adProvider.selectedProvinceId,
-                                      cityId: adProvider.selectedCityId,
-                                      adType: adProvider.adType,
+                                    Provider.of<AdProvider>(context,
+                                            listen: false)
+                                        .fetchAds(
+                                      provinceId: provinceId,
+                                      cityId: cityId,
+                                      adType: adType,
                                     );
                                   },
                                   style: ElevatedButton.styleFrom(
@@ -253,7 +278,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               ],
                             ),
                           )
-                        : adProvider.ads.isEmpty
+                        : ads.isEmpty
                             ? Center(
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -272,327 +297,43 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                   ],
                                 ),
                               )
-                            : ListView.builder(
-                                padding: const EdgeInsets.all(8),
-                                itemCount: adProvider.ads.length +
-                                    1, // +1 for promo ad
-                                itemBuilder: (context, index) {
-                                  if (index == _promoAdIndex) {
-                                    // Promotional Ad
-                                    if (_fadeAnimation == null ||
-                                        _slideAnimation == null ||
-                                        _blinkAnimation == null ||
-                                        _colorAnimation == null) {
-                                      return const SizedBox
-                                          .shrink(); // Skip rendering if animations not ready
+                            : FutureBuilder<Map<String, dynamic>>(
+                                future: _promoAdFuture,
+                                builder: (context, snapshot) {
+                                  // تبلیغ پیش‌فرض
+                                  Map<String, dynamic> promoAd = {
+                                    'title': 'آگهی تبلیغاتی ویژه',
+                                    'ad_type': 'تبلیغ',
+                                    'price': 'پیشنهاد ویژه!',
+                                    'details':
+                                        'جزئیات: پیشنهادات شگفت‌انگیز | مکان: سراسر ایران',
+                                    'image_url':
+                                        'https://via.placeholder.com/100',
+                                  };
+
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.done) {
+                                    if (snapshot.hasData) {
+                                      promoAd = snapshot.data!;
+                                    } else if (snapshot.hasError) {
+                                      print(
+                                          'خطا در گرفتن تبلیغ: ${snapshot.error}');
                                     }
-                                    return FadeTransition(
-                                      opacity: _fadeAnimation!,
-                                      child: SlideTransition(
-                                        position: _slideAnimation!,
-                                        child: Card(
-                                          elevation: 4,
-                                          margin:
-                                              const EdgeInsets.only(bottom: 8),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                            side: const BorderSide(
-                                                color: Colors.redAccent,
-                                                width: 2),
-                                          ),
-                                          child: InkWell(
-                                            onTap: () {
-                                              print('Tapped on promotional ad');
-                                              // Placeholder for future navigation or action
-                                            },
-                                            child: Container(
-                                              height: 120,
-                                              padding: const EdgeInsets.all(4),
-                                              decoration: BoxDecoration(
-                                                gradient: const LinearGradient(
-                                                  colors: [
-                                                    Colors.redAccent,
-                                                    Colors.orangeAccent
-                                                  ],
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  // Image (Right)
-                                                  Container(
-                                                    width: 100,
-                                                    height: 100,
-                                                    decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              8),
-                                                      color: Colors.white,
-                                                    ),
-                                                    child: ClipRRect(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              8),
-                                                      child: CachedNetworkImage(
-                                                        imageUrl:
-                                                            'https://via.placeholder.com/100',
-                                                        fit: BoxFit.cover,
-                                                        placeholder: (context,
-                                                                url) =>
-                                                            const Center(
-                                                                child:
-                                                                    CircularProgressIndicator()),
-                                                        errorWidget: (context,
-                                                                url, error) =>
-                                                            const Icon(
-                                                          Icons.star,
-                                                          size: 50,
-                                                          color: Colors.yellow,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  // Text Info (Left)
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        // Title with color change
-                                                        Flexible(
-                                                          child:
-                                                              AnimatedBuilder(
-                                                            animation:
-                                                                _colorAnimation!,
-                                                            builder: (context,
-                                                                child) {
-                                                              return Text(
-                                                                'آگهی تبلیغاتی ویژه',
-                                                                style:
-                                                                    TextStyle(
-                                                                  fontSize: 16,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .bold,
-                                                                  fontFamily:
-                                                                      'Vazir',
-                                                                  color:
-                                                                      _colorAnimation!
-                                                                          .value,
-                                                                ),
-                                                                maxLines: 1,
-                                                                overflow:
-                                                                    TextOverflow
-                                                                        .ellipsis,
-                                                              );
-                                                            },
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                            height: 2),
-                                                        // Ad Type
-                                                        const Text(
-                                                          'نوع: تبلیغ',
-                                                          style: TextStyle(
-                                                            fontSize: 10,
-                                                            fontFamily: 'Vazir',
-                                                            color:
-                                                                Colors.white70,
-                                                          ),
-                                                        ),
-                                                        // Price with blinking
-                                                        AnimatedBuilder(
-                                                          animation:
-                                                              _blinkAnimation!,
-                                                          builder:
-                                                              (context, child) {
-                                                            return Opacity(
-                                                              opacity:
-                                                                  _blinkAnimation!
-                                                                      .value,
-                                                              child: const Text(
-                                                                'پیشنهاد ویژه!',
-                                                                style:
-                                                                    TextStyle(
-                                                                  fontSize: 10,
-                                                                  fontFamily:
-                                                                      'Vazir',
-                                                                  color: Colors
-                                                                      .white,
-                                                                ),
-                                                              ),
-                                                            );
-                                                          },
-                                                        ),
-                                                        // Details and Location
-                                                        const Flexible(
-                                                          child: Text(
-                                                            'جزئیات: پیشنهادات شگفت‌انگیز | مکان: سراسر ایران',
-                                                            style: TextStyle(
-                                                              fontSize: 10,
-                                                              fontFamily:
-                                                                  'Vazir',
-                                                              color: Colors
-                                                                  .white70,
-                                                            ),
-                                                            maxLines: 1,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    );
                                   }
-                                  // Regular Ads
-                                  final adIndex = index < _promoAdIndex!
-                                      ? index
-                                      : index - 1;
-                                  final ad = adProvider.ads[adIndex];
-                                  return Card(
-                                    elevation: 4,
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: InkWell(
-                                      onTap: () {
-                                        print(
-                                            'Navigating to AdDetailsScreen for ad: ${ad.adId}');
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                const AdDetailsScreen(),
-                                            settings:
-                                                RouteSettings(arguments: ad),
-                                          ),
-                                        );
-                                      },
-                                      child: Container(
-                                        height: 120,
-                                        padding: const EdgeInsets.all(4),
-                                        child: Row(
-                                          children: [
-                                            // Image (Right)
-                                            Container(
-                                              width: 100,
-                                              height: 100,
-                                              decoration: BoxDecoration(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                color: Colors.grey[200],
-                                              ),
-                                              child: ad.imageUrls.isNotEmpty
-                                                  ? ClipRRect(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              8),
-                                                      child: CachedNetworkImage(
-                                                        imageUrl:
-                                                            ad.imageUrls.first,
-                                                        fit: BoxFit.cover,
-                                                        placeholder: (context,
-                                                                url) =>
-                                                            const Center(
-                                                                child:
-                                                                    CircularProgressIndicator()),
-                                                        errorWidget: (context,
-                                                                url, error) =>
-                                                            Icon(
-                                                          _getIconForAdType(
-                                                              ad.adType),
-                                                          size: 50,
-                                                          color: Colors.grey,
-                                                        ),
-                                                      ),
-                                                    )
-                                                  : Icon(
-                                                      _getIconForAdType(
-                                                          ad.adType),
-                                                      size: 50,
-                                                      color: Colors.grey,
-                                                    ),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            // Text Info (Left)
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.start,
-                                                children: [
-                                                  // Title
-                                                  Flexible(
-                                                    child: Text(
-                                                      ad.title,
-                                                      style: const TextStyle(
-                                                        fontSize: 16,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        fontFamily: 'Vazir',
-                                                      ),
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 2),
-                                                  // Ad Type
-                                                  Text(
-                                                    'نوع: ${_getCategoryName(ad.adType)}',
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                      fontFamily: 'Vazir',
-                                                    ),
-                                                  ),
-                                                  // Price
-                                                  Text(
-                                                    _getPriceText(ad),
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                      fontFamily: 'Vazir',
-                                                      color: Colors.red,
-                                                    ),
-                                                  ),
-                                                  // Details and Location
-                                                  Flexible(
-                                                    child: Text(
-                                                      '${_getDetailsText(ad)} | مکان: ${ad.provinceName ?? 'نامشخص'}، ${ad.cityName ?? 'نامشخص'}',
-                                                      style: const TextStyle(
-                                                        fontSize: 10,
-                                                        fontFamily: 'Vazir',
-                                                      ),
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
+
+                                  return ListView.builder(
+                                    padding: const EdgeInsets.all(8),
+                                    itemCount: ads.length + 1,
+                                    itemBuilder: (context, index) {
+                                      if (index == _promoAdIndex) {
+                                        return _buildPromoAdCard(promoAd);
+                                      }
+                                      final adIndex = index < _promoAdIndex!
+                                          ? index
+                                          : index - 1;
+                                      final ad = ads[adIndex];
+                                      return _buildRegularAdCard(ad);
+                                    },
                                   );
                                 },
                               ),
@@ -613,23 +354,262 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         unselectedLabelStyle:
             const TextStyle(fontFamily: 'Vazir', fontSize: 12),
         items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'خانه'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'خانه',
-          ),
+              icon: Icon(Icons.list_alt), label: 'آگهی‌های من'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.list_alt),
-            label: 'آگهی‌های من',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle),
-            label: 'ثبت آگهی',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'پروفایل',
-          ),
+              icon: Icon(Icons.add_circle), label: 'ثبت آگهی'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'پروفایل'),
         ],
+      ),
+    );
+  }
+
+  // ویجت تبلیغ پرموشنال
+  Widget _buildPromoAdCard(Map<String, dynamic> promoAd) {
+    // لاگ برای دیباگ
+    print('رندر تبلیغ پرموشنال: ${promoAd['title']}');
+
+    // ساده‌سازی شرط انیمیشن
+    if (_cardAnimationController == null || _textAnimationController == null) {
+      return const SizedBox.shrink();
+    }
+
+    return FadeTransition(
+      opacity: _fadeAnimation ??
+          AlwaysStoppedAnimation(1.0), // fallback برای انیمیشن
+      child: SlideTransition(
+        position: _slideAnimation ?? AlwaysStoppedAnimation(Offset.zero),
+        child: Card(
+          elevation: 4,
+          margin: const EdgeInsets.only(bottom: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Colors.redAccent, width: 2),
+          ),
+          child: InkWell(
+            onTap: () {
+              print('کلیک روی تبلیغ: ${promoAd['title']}');
+            },
+            child: Container(
+              height: 120,
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Colors.redAccent, Colors.orangeAccent],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  // تصویر
+                  Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.white,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: CachedNetworkImage(
+                        imageUrl: promoAd['image_url'] ?? '',
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) =>
+                            const Center(child: CircularProgressIndicator()),
+                        errorWidget: (context, url, error) {
+                          print('خطا در لود تصویر: $error, URL: $url');
+                          return Image.asset(
+                            'assets/images/fallback_promo.jpg',
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              print('خطا در لود تصویر محلی: $error');
+                              return const Icon(Icons.star,
+                                  size: 50, color: Colors.yellow);
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // اطلاعات متنی
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        Flexible(
+                          child: AnimatedBuilder(
+                            animation: _colorAnimation ??
+                                AlwaysStoppedAnimation(Colors.white),
+                            builder: (context, child) {
+                              return Text(
+                                promoAd['title'] ?? 'آگهی تبلیغاتی ویژه',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'Vazir',
+                                  color: _colorAnimation?.value ?? Colors.white,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'نوع: ${promoAd['ad_type'] ?? 'تبلیغ'}',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontFamily: 'Vazir',
+                            color: Colors.white70,
+                          ),
+                        ),
+                        AnimatedBuilder(
+                          animation:
+                              _blinkAnimation ?? AlwaysStoppedAnimation(1.0),
+                          builder: (context, child) {
+                            return Opacity(
+                              opacity: _blinkAnimation?.value ?? 1.0,
+                              child: Text(
+                                promoAd['price'] ??
+                                    'پیشنهاد ویژه!', // اصلاح price به جای image_url
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontFamily: 'Vazir',
+                                  color: Colors.white,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        Flexible(
+                          child: Text(
+                            promoAd['details'] ??
+                                'جزئیات: پیشنهادات شگفت‌انگیز',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontFamily: 'Vazir',
+                              color: Colors.white70,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ویجت آگهی معمولی
+  Widget _buildRegularAdCard(Ad ad) {
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: InkWell(
+        onTap: () {
+          print('رفتن به جزییات آگهی: ${ad.adId}');
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AdDetailsScreen(),
+              settings: RouteSettings(arguments: ad),
+            ),
+          );
+        },
+        child: Container(
+          height: 120,
+          padding: const EdgeInsets.all(4),
+          child: Row(
+            children: [
+              // تصویر
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.grey[200],
+                ),
+                child: ad.imageUrls.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: CachedNetworkImage(
+                          imageUrl: ad.imageUrls.first,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) =>
+                              const Center(child: CircularProgressIndicator()),
+                          errorWidget: (context, url, error) => Icon(
+                            _getIconForAdType(ad.adType),
+                            size: 50,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      )
+                    : Icon(
+                        _getIconForAdType(ad.adType),
+                        size: 50,
+                        color: Colors.grey,
+                      ),
+              ),
+              const SizedBox(width: 4),
+              // اطلاعات متنی
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        ad.title ?? 'بدون عنوان',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Vazir',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'نوع: ${_getCategoryName(ad.adType)}',
+                      style: const TextStyle(fontSize: 10, fontFamily: 'Vazir'),
+                    ),
+                    Text(
+                      _getPriceText(ad),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontFamily: 'Vazir',
+                        color: Colors.red,
+                      ),
+                    ),
+                    Flexible(
+                      child: Text(
+                        '${_getDetailsText(ad)} | مکان: ${ad.provinceName ?? 'نامشخص'}، ${ad.cityName ?? 'نامشخص'}',
+                        style:
+                            const TextStyle(fontSize: 10, fontFamily: 'Vazir'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -639,12 +619,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (ad.adType == 'REAL_ESTATE') {
       if (ad.realEstateType == 'RENT') {
         final depositText = ad.deposit != null
-            ? '${numberFormatter.format(ad.deposit)}'
+            ? '${numberFormatter.format(ad.deposit)} تومان'
             : 'توافقی';
         final rentText = ad.monthlyRent != null
-            ? '${numberFormatter.format(ad.monthlyRent)}'
+            ? '${numberFormatter.format(ad.monthlyRent)} تومان'
             : 'توافقی';
-        return 'ودیعه: $depositText تومان | اجاره: $rentText تومان';
+        return 'ودیعه: $depositText | اجاره: $rentText';
       } else if (ad.realEstateType == 'SALE' && ad.totalPrice != null) {
         return 'قیمت کل: ${numberFormatter.format(ad.totalPrice)} تومان';
       }
@@ -660,8 +640,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   String _getDetailsText(Ad ad) {
+    final numberFormatter = NumberFormat('#,###', 'fa_IR');
     if (ad.adType == 'REAL_ESTATE' && ad.area != null) {
-      String details = 'متراژ: ${ad.area} متر';
+      String details = 'متراژ: ${numberFormatter.format(ad.area)} متر مربع';
       if (ad.realEstateType != null) {
         details += ' | نوع: ${ad.realEstateType == 'SALE' ? 'فروش' : 'اجاره'}';
       }
@@ -669,7 +650,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     } else if (ad.adType == 'VEHICLE' && ad.brand != null && ad.model != null) {
       String details = 'خودرو: ${ad.brand} ${ad.model}';
       if (ad.mileage != null) {
-        details += ' | کارکرد: ${ad.mileage} کیلومتر';
+        details += ' | کارکرد: ${numberFormatter.format(ad.mileage)} کیلومتر';
       }
       return details;
     } else if (['DIGITAL', 'HOME', 'PERSONAL', 'ENTERTAINMENT']
@@ -732,13 +713,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 }
 
-// Helper class for ColorTweenSequence
+// کلاس کمکی برای تغییر رنگ
 class ColorTweenSequence extends TweenSequence<Color?> {
   ColorTweenSequence(List<ColorTweenSequenceItem> items) : super(items);
 }
 
 class ColorTweenSequenceItem extends TweenSequenceItem<Color?> {
-  ColorTweenSequenceItem({
+  const ColorTweenSequenceItem({
     required ColorTween tween,
     required double weight,
   }) : super(tween: tween, weight: weight);

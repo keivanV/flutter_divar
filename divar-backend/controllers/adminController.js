@@ -2,6 +2,41 @@ const db = require('../config/db');
 const bcrypt = require('bcrypt');
 const moment = require('moment-timezone');
 
+
+const multer = require('multer');
+const path = require('path');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    const filetypes = /jpeg|jpg|png/;
+    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = filetypes.test(file.mimetype) || file.mimetype === 'image/jpg';
+    console.log('File info:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      extname: path.extname(file.originalname).toLowerCase(),
+    }); // لاگ برای دیباگ
+    if (extname && mimetype) {
+      return cb(null, true);
+    } else {
+      const error = new Error('فقط تصاویر JPG/PNG مجاز هستند');
+      console.error('File rejected:', error.message, { mimetype: file.mimetype });
+      cb(error);
+    }
+  },
+}).single('image');
+
+
 const adminController = {
   async login(req, res) {
     try {
@@ -367,7 +402,130 @@ const adminController = {
       console.error('خطا در دریافت کامنت‌های آگهی:', error);
       res.status(500).json({ message: `خطای سرور: ${error.message}` });
     }
-  }
+  },
+
+async getPromoAds(req, res) {
+    try {
+      const adminId = req.headers['x-admin-id'];
+      if (!adminId || isNaN(adminId)) {
+        return res.status(401).json({ message: 'شناسه ادمین نامعتبر است' });
+      }
+      const admin = await db('admins').where({ admin_id: adminId }).first();
+      if (!admin) {
+        return res.status(401).json({ message: 'ادمین نامعتبر است' });
+      }
+      const promoAds = await db('promo_ads').select('*').orderBy('created_at', 'desc');
+      res.status(200).json(promoAds);
+    } catch (error) {
+      console.error('خطا در دریافت تبلیغ‌ها:', error);
+      res.status(500).json({ message: 'خطای سرور' });
+    }
+  },
+
+async createPromoAd(req, res) {
+  upload(req, res, async (err) => {
+    try {
+      if (err) {
+        console.error('خطای آپلود:', err);
+        return res.status(400).json({ message: err.message });
+      }
+      const adminId = req.headers['x-admin-id'];
+      if (!adminId || isNaN(adminId)) {
+        return res.status(401).json({ message: 'شناسه ادمین نامعتبر است' });
+      }
+      const admin = await db('admins').where({ admin_id: adminId }).first();
+      if (!admin) {
+        return res.status(401).json({ message: 'ادمین نامعتبر است' });
+      }
+      const { title, ad_type, price, details } = req.body;
+      if (!title || !ad_type || !price || !details) {
+        return res.status(400).json({ message: 'همه فیلدها الزامی هستند' });
+      }
+      let image_url = 'http://localhost:5000/uploads/default-promo.jpg';
+      if (req.file) {
+        image_url = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+      }
+      const [id] = await db('promo_ads').insert({
+        title,
+        ad_type,
+        price,
+        details,
+        image_url,
+        created_at: db.fn.now(),
+      });
+      const newAd = await db('promo_ads').where({ id }).first();
+      res.status(201).json(newAd);
+    } catch (error) {
+      console.error('خطا در ایجاد تبلیغ:', error);
+      res.status(500).json({ message: `خطای سرور: ${error.message}` });
+    }
+  });
+},
+
+  async updatePromoAd(req, res) {
+    upload(req, res, async (err) => {
+      try {
+        if (err) {
+          return res.status(400).json({ message: err.message });
+        }
+        const adminId = req.headers['x-admin-id'];
+        if (!adminId || isNaN(adminId)) {
+          return res.status(401).json({ message: 'شناسه ادمین نامعتبر است' });
+        }
+        const admin = await db('admins').where({ admin_id: adminId }).first();
+        if (!admin) {
+          return res.status(401).json({ message: 'ادمین نامعتبر است' });
+        }
+        const { id } = req.params;
+        const { title, ad_type, price, details } = req.body;
+        const ad = await db('promo_ads').where({ id }).first();
+        if (!ad) {
+          return res.status(404).json({ message: 'تبلیغ یافت نشد' });
+        }
+        let image_url = ad.image_url;
+        if (req.file) {
+          image_url = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+        }
+        await db('promo_ads').where({ id }).update({
+          title: title || ad.title,
+          ad_type: ad_type || ad.ad_type,
+          price: price || ad.price,
+          details: details || ad.details,
+          image_url,
+          updated_at: db.fn.now(),
+        });
+        const updatedAd = await db('promo_ads').where({ id }).first();
+        res.status(200).json(updatedAd);
+      } catch (error) {
+        console.error('خطا در ویرایش تبلیغ:', error);
+        res.status(500).json({ message: 'خطای سرور' });
+      }
+    });
+  },
+
+  async deletePromoAd(req, res) {
+    try {
+      const adminId = req.headers['x-admin-id'];
+      if (!adminId || isNaN(adminId)) {
+        return res.status(401).json({ message: 'شناسه ادمین نامعتبر است' });
+      }
+      const admin = await db('admins').where({ admin_id: adminId }).first();
+      if (!admin) {
+        return res.status(401).json({ message: 'ادمین نامعتبر است' });
+      }
+      const { id } = req.params;
+      const deleted = await db('promo_ads').where({ id }).del();
+      if (!deleted) {
+        return res.status(404).json({ message: 'تبلیغ یافت نشد' });
+      }
+      res.status(200).json({ message: 'تبلیغ با موفقیت حذف شد' });
+    } catch (error) {
+      console.error('خطا در حذف تبلیغ:', error);
+      res.status(500).json({ message: 'خطای سرور' });
+    }
+  },
+
+
 };
 
 module.exports = adminController;

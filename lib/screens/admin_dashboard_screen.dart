@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../models/ad.dart';
 import '../providers/admin_provider.dart';
@@ -26,6 +27,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   String _selectedTimePeriod = 'day';
   int _selectedTabIndex = 0;
 
+  final _formKey = GlobalKey<FormState>();
+  String _promoTitle = '';
+  String _promoAdType = 'PROMO';
+  String _promoPrice = '';
+  String _promoDetails = '';
+  XFile? _promoImage;
+  Map<String, dynamic>? _editingAd;
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +48,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       adminProvider.fetchAdsCount(context,
           adType: null, timePeriod: _selectedTimePeriod);
       adminProvider.fetchCommentsCount(context, adType: null);
+      adminProvider.fetchPromoAds(context);
 
       adProvider
           .fetchAds(
@@ -63,6 +73,198 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
       });
     });
+  }
+
+// جدید: انتخاب تصویر
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _promoImage = pickedFile;
+      });
+    }
+  }
+
+  // جدید: نمایش فرم ایجاد/ویرایش تبلیغ
+  void _showPromoAdForm(BuildContext context, {Map<String, dynamic>? ad}) {
+    setState(() {
+      _editingAd = ad;
+      _promoTitle = ad?['title'] ?? '';
+      _promoAdType = ad?['ad_type'] ?? 'PROMO';
+      _promoPrice = ad?['price'] ?? '';
+      _promoDetails = ad?['details'] ?? '';
+      _promoImage = null;
+    });
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          ad == null ? 'ایجاد تبلیغ جدید' : 'ویرایش تبلیغ',
+          style:
+              const TextStyle(fontFamily: 'Vazir', fontWeight: FontWeight.w700),
+          textDirection: TextDirection.rtl,
+        ),
+        content: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  initialValue: _promoTitle,
+                  decoration: const InputDecoration(
+                    labelText: 'عنوان',
+                    labelStyle: TextStyle(fontFamily: 'Vazir'),
+                    alignLabelWithHint: true,
+                  ),
+                  textDirection: TextDirection.rtl,
+                  validator: (value) =>
+                      value!.isEmpty ? 'عنوان الزامی است' : null,
+                  onSaved: (value) => _promoTitle = value!,
+                ),
+                TextFormField(
+                  initialValue: _promoAdType,
+                  decoration: const InputDecoration(
+                    labelText: 'نوع تبلیغ',
+                    labelStyle: TextStyle(fontFamily: 'Vazir'),
+                    alignLabelWithHint: true,
+                  ),
+                  textDirection: TextDirection.rtl,
+                  validator: (value) =>
+                      value!.isEmpty ? 'نوع تبلیغ الزامی است' : null,
+                  onSaved: (value) => _promoAdType = value!,
+                ),
+                TextFormField(
+                  initialValue: _promoPrice,
+                  decoration: const InputDecoration(
+                    labelText: 'قیمت',
+                    labelStyle: TextStyle(fontFamily: 'Vazir'),
+                    alignLabelWithHint: true,
+                  ),
+                  textDirection: TextDirection.rtl,
+                  validator: (value) =>
+                      value!.isEmpty ? 'قیمت الزامی است' : null,
+                  onSaved: (value) => _promoPrice = value!,
+                ),
+                TextFormField(
+                  initialValue: _promoDetails,
+                  decoration: const InputDecoration(
+                    labelText: 'جزئیات',
+                    labelStyle: TextStyle(fontFamily: 'Vazir'),
+                    alignLabelWithHint: true,
+                  ),
+                  textDirection: TextDirection.rtl,
+                  maxLines: 3,
+                  validator: (value) =>
+                      value!.isEmpty ? 'جزئیات الزامی است' : null,
+                  onSaved: (value) => _promoDetails = value!,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _pickImage,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red[800],
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'انتخاب تصویر',
+                    style: TextStyle(fontFamily: 'Vazir'),
+                  ),
+                ),
+                if (_promoImage != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'تصویر انتخاب‌شده: ${_promoImage!.name}',
+                      style: const TextStyle(fontFamily: 'Vazir'),
+                      textDirection: TextDirection.rtl,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'لغو',
+              style: TextStyle(fontFamily: 'Vazir', color: Colors.red),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (_formKey.currentState!.validate()) {
+                _formKey.currentState!.save();
+                final adminProvider =
+                    Provider.of<AdminProvider>(context, listen: false);
+                bool success;
+                if (_editingAd == null) {
+                  success = await adminProvider.createPromoAd(
+                    context,
+                    title: _promoTitle,
+                    adType: _promoAdType,
+                    price: _promoPrice,
+                    details: _promoDetails,
+                    imagePath: _promoImage?.path,
+                  );
+                } else {
+                  success = await adminProvider.updatePromoAd(
+                    context,
+                    id: _editingAd!['id'],
+                    title: _promoTitle,
+                    adType: _promoAdType,
+                    price: _promoPrice,
+                    details: _promoDetails,
+                    imagePath: _promoImage?.path,
+                  );
+                }
+                if (success) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        _editingAd == null
+                            ? 'تبلیغ ایجاد شد'
+                            : 'تبلیغ ویرایش شد',
+                        style: const TextStyle(fontFamily: 'Vazir'),
+                        textDirection: TextDirection.rtl,
+                      ),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        adminProvider.errorMessage ?? 'خطا در عملیات',
+                        style: const TextStyle(fontFamily: 'Vazir'),
+                        textDirection: TextDirection.rtl,
+                      ),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red[800],
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              _editingAd == null ? 'ایجاد' : 'ویرایش',
+              style: const TextStyle(fontFamily: 'Vazir'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showCommentsDialog(BuildContext context, int adId, String adTitle) {
@@ -1125,6 +1327,129 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       }),
                   ],
                 ),
+                const SizedBox(height: 24),
+                _buildSectionCard(
+                  title: 'مدیریت تبلیغ‌های پرموشنال',
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => _showPromoAdForm(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red[800],
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                      ),
+                      child: const Text(
+                        'ایجاد تبلیغ جدید',
+                        style: TextStyle(fontFamily: 'Vazir', fontSize: 16),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (adminProvider.promoAds.isEmpty)
+                      const Text(
+                        'هیچ تبلیغی یافت نشد',
+                        style:
+                            TextStyle(fontFamily: 'Vazir', color: Colors.grey),
+                        textDirection: TextDirection.rtl,
+                      )
+                    else
+                      ...adminProvider.promoAds.map((ad) {
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ListTile(
+                            leading: Icon(
+                              FontAwesomeIcons.bullhorn,
+                              color: Colors.red[700],
+                              size: 20,
+                            ),
+                            title: Text(
+                              ad['title'],
+                              style: const TextStyle(
+                                fontFamily: 'Vazir',
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              textDirection: TextDirection.rtl,
+                            ),
+                            subtitle: Text(
+                              ad['details'],
+                              style: const TextStyle(
+                                fontFamily: 'Vazir',
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                              textDirection: TextDirection.rtl,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const FaIcon(
+                                    FontAwesomeIcons.edit,
+                                    color: Colors.blue,
+                                    size: 18,
+                                  ),
+                                  onPressed: () =>
+                                      _showPromoAdForm(context, ad: ad),
+                                ),
+                                IconButton(
+                                  icon: const FaIcon(
+                                    FontAwesomeIcons.trash,
+                                    color: Colors.red,
+                                    size: 18,
+                                  ),
+                                  onPressed: () async {
+                                    final adminProvider =
+                                        Provider.of<AdminProvider>(context,
+                                            listen: false);
+                                    final success = await adminProvider
+                                        .deletePromoAd(context, ad['id']);
+                                    if (success) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'تبلیغ حذف شد',
+                                            style:
+                                                TextStyle(fontFamily: 'Vazir'),
+                                            textDirection: TextDirection.rtl,
+                                          ),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                    } else {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            adminProvider.errorMessage ??
+                                                'خطا در حذف',
+                                            style: const TextStyle(
+                                                fontFamily: 'Vazir'),
+                                            textDirection: TextDirection.rtl,
+                                          ),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                  ],
+                )
               ],
             ),
           );

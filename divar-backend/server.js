@@ -6,6 +6,7 @@ const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const adRoutes = require('./routes/adRoutes');
 const bookmarkRoutes = require('./routes/bookmarkRoutes');
+const db = require('./config/db'); // Import db
 const locationRoutes = require('./routes/locationRoutes');
 const cors = require('cors');
 require('dotenv').config();
@@ -72,6 +73,22 @@ app.post('/api/upload', upload.single('image'), async (req, res, next) => {
     console.log('Image uploaded:', imageUrl);
     res.status(200).json({ imageUrl });
   } catch (error) {
+    next(error);
+  }
+});
+
+
+app.get('/api/promo-ad', async (req, res, next) => {
+  try {
+    console.log('درخواست تبلیغ پرموشنال');
+    const ads = await db('promo_ads').select('*');
+    if (ads.length === 0) {
+      return res.status(404).json({ error: 'هیچ تبلیغی یافت نشد' });
+    }
+    const randomAd = ads[Math.floor(Math.random() * ads.length)];
+    res.status(200).json(randomAd);
+  } catch (error) {
+    console.error('خطا در دریافت تبلیغ:', error);
     next(error);
   }
 });

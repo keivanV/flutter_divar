@@ -18,4 +18,11 @@ router.get('/ads',authMiddleware , adminController.getAdsWithCommentCount);
 router.get('/ads/:adId/comments',authMiddleware, adminController.getCommentsByAdId);
 router.get('/comments', authMiddleware, adminController.getAllComments);
 
+
+router.get('/promo-ads', authMiddleware, adminController.getPromoAds);
+router.post('/promo-ads', authMiddleware, adminController.createPromoAd);
+router.put('/promo-ads/:id', authMiddleware, adminController.updatePromoAd);
+router.delete('/promo-ads/:id', authMiddleware, adminController.deletePromoAd);
+
+
 module.exports = router;

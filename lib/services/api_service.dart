@@ -54,6 +54,27 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> fetchPromoAd() async {
+    try {
+      final uri = Uri.parse('$apiBaseUrl/promo-ad');
+      print('گرفتن تبلیغ پرموشنال از: $uri');
+      final response = await http.get(uri);
+
+      print('وضعیت تبلیغ پرموشنال: ${response.statusCode}');
+      print('بادی تبلیغ پرموشنال: ${response.body}');
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception(
+            'خطا در گرفتن تبلیغ پرموشنال: ${response.statusCode} ${response.body}');
+      }
+    } catch (e) {
+      print('خطا در گرفتن تبلیغ پرموشنال: $e');
+      throw Exception('خطا در گرفتن تبلیغ پرموشنال: $e');
+    }
+  }
+
   Future<void> updateAd({
     required Map<String, dynamic> adData,
     List<File> images = const [],

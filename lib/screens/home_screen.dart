@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:divar_app/models/ad.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +16,7 @@ class HomeScreen extends StatefulWidget {
   _HomeScreenState createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final List<Map<String, dynamic>> categories = [
     {'id': null, 'name': 'همه', 'icon': Icons.all_inclusive},
     {'id': 'REAL_ESTATE', 'name': 'املاک', 'icon': Icons.home},
@@ -31,11 +32,58 @@ class _HomeScreenState extends State<HomeScreen> {
     },
   ];
 
-  int _selectedIndex = 0; // Track the selected tab
+  int _selectedIndex = 0;
+  AnimationController? _cardAnimationController;
+  AnimationController? _textAnimationController;
+  Animation<double>? _fadeAnimation;
+  Animation<Offset>? _slideAnimation;
+  Animation<double>? _blinkAnimation;
+  Animation<Color?>? _colorAnimation;
+  int? _promoAdIndex;
 
   @override
   void initState() {
     super.initState();
+    // Initialize card animation controller for promotional ad
+    _cardAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _cardAnimationController!, curve: Curves.easeIn),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.2),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _cardAnimationController!, curve: Curves.easeOut),
+    );
+    _cardAnimationController!.forward();
+
+    // Initialize text animation controller for blinking and color change
+    _textAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat(reverse: true);
+    _blinkAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(
+          parent: _textAnimationController!, curve: Curves.easeInOut),
+    );
+    _colorAnimation = ColorTweenSequence([
+      ColorTweenSequenceItem(
+        tween: ColorTween(begin: Colors.white, end: Colors.yellow),
+        weight: 0.5,
+      ),
+      ColorTweenSequenceItem(
+        tween: ColorTween(begin: Colors.yellow, end: Colors.red),
+        weight: 0.25,
+      ),
+      ColorTweenSequenceItem(
+        tween: ColorTween(begin: Colors.red, end: Colors.white),
+        weight: 0.25,
+      ),
+    ]).animate(_textAnimationController!);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       print('HomeScreen initState: Fetching initial ads');
       final adProvider = Provider.of<AdProvider>(context, listen: false);
@@ -46,7 +94,18 @@ class _HomeScreenState extends State<HomeScreen> {
           adType: adProvider.adType,
         );
       }
+      // Set random index for promotional ad
+      setState(() {
+        _promoAdIndex = Random().nextInt(adProvider.ads.length + 1);
+      });
     });
+  }
+
+  @override
+  void dispose() {
+    _cardAnimationController?.dispose();
+    _textAnimationController?.dispose();
+    super.dispose();
   }
 
   void _onItemTapped(int index) {
@@ -55,7 +114,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     switch (index) {
       case 0:
-        // Stay on HomeScreen (Ads List)
         break;
       case 1:
         Navigator.pushNamed(context, '/my_ads');
@@ -83,6 +141,10 @@ class _HomeScreenState extends State<HomeScreen> {
               'provinceId=${adProvider.selectedProvinceId}, '
               'cityId=${adProvider.selectedCityId}, '
               'adType=${adProvider.adType}');
+          // Update promo ad index when ads list changes
+          if (_promoAdIndex == null || _promoAdIndex! > adProvider.ads.length) {
+            _promoAdIndex = Random().nextInt(adProvider.ads.length + 1);
+          }
           return Column(
             children: [
               // Category Filter
@@ -212,9 +274,198 @@ class _HomeScreenState extends State<HomeScreen> {
                               )
                             : ListView.builder(
                                 padding: const EdgeInsets.all(8),
-                                itemCount: adProvider.ads.length,
+                                itemCount: adProvider.ads.length +
+                                    1, // +1 for promo ad
                                 itemBuilder: (context, index) {
-                                  final ad = adProvider.ads[index];
+                                  if (index == _promoAdIndex) {
+                                    // Promotional Ad
+                                    if (_fadeAnimation == null ||
+                                        _slideAnimation == null ||
+                                        _blinkAnimation == null ||
+                                        _colorAnimation == null) {
+                                      return const SizedBox
+                                          .shrink(); // Skip rendering if animations not ready
+                                    }
+                                    return FadeTransition(
+                                      opacity: _fadeAnimation!,
+                                      child: SlideTransition(
+                                        position: _slideAnimation!,
+                                        child: Card(
+                                          elevation: 4,
+                                          margin:
+                                              const EdgeInsets.only(bottom: 8),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            side: const BorderSide(
+                                                color: Colors.redAccent,
+                                                width: 2),
+                                          ),
+                                          child: InkWell(
+                                            onTap: () {
+                                              print('Tapped on promotional ad');
+                                              // Placeholder for future navigation or action
+                                            },
+                                            child: Container(
+                                              height: 120,
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: BoxDecoration(
+                                                gradient: const LinearGradient(
+                                                  colors: [
+                                                    Colors.redAccent,
+                                                    Colors.orangeAccent
+                                                  ],
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  // Image (Right)
+                                                  Container(
+                                                    width: 100,
+                                                    height: 100,
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8),
+                                                      color: Colors.white,
+                                                    ),
+                                                    child: ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8),
+                                                      child: CachedNetworkImage(
+                                                        imageUrl:
+                                                            'https://via.placeholder.com/100',
+                                                        fit: BoxFit.cover,
+                                                        placeholder: (context,
+                                                                url) =>
+                                                            const Center(
+                                                                child:
+                                                                    CircularProgressIndicator()),
+                                                        errorWidget: (context,
+                                                                url, error) =>
+                                                            const Icon(
+                                                          Icons.star,
+                                                          size: 50,
+                                                          color: Colors.yellow,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  // Text Info (Left)
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        // Title with color change
+                                                        Flexible(
+                                                          child:
+                                                              AnimatedBuilder(
+                                                            animation:
+                                                                _colorAnimation!,
+                                                            builder: (context,
+                                                                child) {
+                                                              return Text(
+                                                                'آگهی تبلیغاتی ویژه',
+                                                                style:
+                                                                    TextStyle(
+                                                                  fontSize: 16,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  fontFamily:
+                                                                      'Vazir',
+                                                                  color:
+                                                                      _colorAnimation!
+                                                                          .value,
+                                                                ),
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                              );
+                                                            },
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                            height: 2),
+                                                        // Ad Type
+                                                        const Text(
+                                                          'نوع: تبلیغ',
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                            fontFamily: 'Vazir',
+                                                            color:
+                                                                Colors.white70,
+                                                          ),
+                                                        ),
+                                                        // Price with blinking
+                                                        AnimatedBuilder(
+                                                          animation:
+                                                              _blinkAnimation!,
+                                                          builder:
+                                                              (context, child) {
+                                                            return Opacity(
+                                                              opacity:
+                                                                  _blinkAnimation!
+                                                                      .value,
+                                                              child: const Text(
+                                                                'پیشنهاد ویژه!',
+                                                                style:
+                                                                    TextStyle(
+                                                                  fontSize: 10,
+                                                                  fontFamily:
+                                                                      'Vazir',
+                                                                  color: Colors
+                                                                      .white,
+                                                                ),
+                                                              ),
+                                                            );
+                                                          },
+                                                        ),
+                                                        // Details and Location
+                                                        const Flexible(
+                                                          child: Text(
+                                                            'جزئیات: پیشنهادات شگفت‌انگیز | مکان: سراسر ایران',
+                                                            style: TextStyle(
+                                                              fontSize: 10,
+                                                              fontFamily:
+                                                                  'Vazir',
+                                                              color: Colors
+                                                                  .white70,
+                                                            ),
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  // Regular Ads
+                                  final adIndex = index < _promoAdIndex!
+                                      ? index
+                                      : index - 1;
+                                  final ad = adProvider.ads[adIndex];
                                   return Card(
                                     elevation: 4,
                                     margin: const EdgeInsets.only(bottom: 8),
@@ -431,7 +682,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       return details.isNotEmpty ? details : 'جزئیات: نامشخص';
     } else if (ad.adType == 'SERVICES') {
-      // Since no specific fields like serviceType or serviceDuration exist, use title or generic
       return ad.description.isNotEmpty
           ? 'توضیحات: ${ad.description}'
           : 'جزئیات: نامشخص';
@@ -480,4 +730,16 @@ class _HomeScreenState extends State<HomeScreen> {
         return Icons.category;
     }
   }
+}
+
+// Helper class for ColorTweenSequence
+class ColorTweenSequence extends TweenSequence<Color?> {
+  ColorTweenSequence(List<ColorTweenSequenceItem> items) : super(items);
+}
+
+class ColorTweenSequenceItem extends TweenSequenceItem<Color?> {
+  ColorTweenSequenceItem({
+    required ColorTween tween,
+    required double weight,
+  }) : super(tween: tween, weight: weight);
 }

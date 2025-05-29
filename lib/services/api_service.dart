@@ -65,7 +65,6 @@ class ApiService {
         throw Exception('شناسه آگهی نامعتبر است');
       }
 
-      // Log the adData to verify all fields
       print('Sending updateAd request with adData: $adData');
       print('Images count: ${images.length}');
       print('Existing images: $existingImages');
@@ -77,7 +76,6 @@ class ApiService {
       final cleanedAdData = Map<String, dynamic>.from(adData)
         ..removeWhere((key, value) => value == null);
 
-      // Add each field to request.fields
       cleanedAdData.forEach((key, value) {
         request.fields[key] = value.toString();
       });
@@ -85,6 +83,7 @@ class ApiService {
       // Add existing images as a JSON string
       if (existingImages.isNotEmpty) {
         request.fields['existing_images'] = jsonEncode(existingImages);
+        print('Added existing_images: ${request.fields['existing_images']}');
       }
 
       // Add new images
@@ -94,24 +93,26 @@ class ApiService {
           throw Exception('فایل تصویر وجود ندارد: ${image.path}');
         }
         final fileExtension = image.path.split('.').last.toLowerCase();
-        if (!['jpg', 'jpeg', 'png', 'gif'].contains(fileExtension)) {
-          throw Exception('فقط تصاویر JPEG، PNG و GIF مجاز هستند');
+        if (!['jpg', 'jpeg', 'png'].contains(fileExtension)) {
+          throw Exception('فقط تصاویر JPEG و PNG مجاز هستند');
         }
         final mimeType = fileExtension == 'jpg' || fileExtension == 'jpeg'
             ? 'image/jpeg'
-            : fileExtension == 'png'
-                ? 'image/png'
-                : 'image/gif';
-        final file = await http.MultipartFile.fromPath(
-          'images', // This key must match what the backend expects
-          image.path,
-          contentType: MediaType('image', mimeType.split('/')[1]),
-        );
-        request.files.add(file);
-        print('Added image: ${image.path}, MIME: $mimeType');
+            : 'image/png';
+        try {
+          final file = await http.MultipartFile.fromPath(
+            'images', // Must match backend multer field name
+            image.path,
+            contentType: MediaType('image', mimeType.split('/')[1]),
+          );
+          request.files.add(file);
+          print('Added image: ${image.path}, MIME: $mimeType');
+        } catch (e) {
+          print('Error adding image ${image.path}: $e');
+          throw Exception('خطا در افزودن تصویر: ${image.path}');
+        }
       }
 
-      // Log request details
       print('Request fields: ${request.fields}');
       print('Request files: ${request.files.map((f) => f.filename).toList()}');
 

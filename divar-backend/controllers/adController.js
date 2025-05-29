@@ -715,7 +715,7 @@ async function updateAd(req, res) {
     console.log('Received updateAd request:', {
       ad_id,
       body: req.body,
-      files: req.files ? req.files.images : undefined,
+      files: req.files,
     });
 
     // Validate ad_id
@@ -725,8 +725,8 @@ async function updateAd(req, res) {
       return res.status(400).json({ message: 'شناسه آگهی نامعتبر است' });
     }
 
-    // Check if req.body is empty
-    if (Object.keys(req.body).length === 0 && (!req.files || !req.files.images)) {
+    // Check if req.body is empty and no files are provided
+    if (Object.keys(req.body).length === 0 && (!req.files || req.files.length === 0)) {
       console.log('No data provided for update:', { ad_id });
       return res.status(400).json({ message: 'هیچ داده‌ای برای به‌روزرسانی ارائه نشده است' });
     }
@@ -834,7 +834,7 @@ async function updateAd(req, res) {
       item_condition = existingSpecificDetails.item_condition,
       service_type = existingSpecificDetails.service_type,
       service_duration = existingSpecificDetails.service_duration,
-      existing_images = existingSpecificDetails.existingImageUrls,
+      existing_images = '[]', // Default to empty array if not provided
     } = req.body;
 
     // Validate fields
@@ -987,6 +987,65 @@ async function updateAd(req, res) {
     const parsedHasStorage = ad_type === 'REAL_ESTATE' ? boolToInt(has_storage) : null;
     const parsedHasBalcony = ad_type === 'REAL_ESTATE' ? boolToInt(has_balcony) : null;
 
+    // Handle images
+    if (existing_images || (req.files && req.files.length > 0)) {
+      console.log('Processing images for ad_id:', parsedAdId);
+      console.log('Existing images input:', existing_images);
+      console.log('New images count:', req.files ? req.files.length : 0);
+
+      // Validate total images
+      let existingImageUrls = [];
+      if (existing_images) {
+        try {
+          existingImageUrls = JSON.parse(existing_images);
+          if (!Array.isArray(existingImageUrls)) {
+            throw new Error('existing_images must be an array');
+          }
+          for (const imageUrl of existingImageUrls) {
+            if (!imageUrl || (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://'))) {
+              throw new Error(`Invalid image URL: ${imageUrl}`);
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing existing_images:', { error: e.message, input: existing_images });
+          return res.status(400).json({ message: `فرمت existing_images نامعتبر است: ${e.message}` });
+        }
+      }
+
+      const newImages = req.files || [];
+      const totalImages = existingImageUrls.length + newImages.length;
+      console.log('Total images:', { existing: existingImageUrls.length, new: newImages.length });
+
+      if (totalImages > 5) {
+        console.log('Too many images:', { existingImages: existingImageUrls.length, newImages: newImages.length });
+        return res.status(400).json({ message: 'حداکثر ۵ تصویر مجاز است' });
+      }
+      if (totalImages === 0) {
+        console.log('No images provided:', { ad_id: parsedAdId });
+        return res.status(400).json({ message: 'حداقل یک تصویر الزامی است' });
+      }
+
+      // Delete existing images
+      console.log('Deleting existing images for ad_id:', parsedAdId);
+      const deleteImagesResult = await db.raw(`DELETE FROM ad_images WHERE ad_id = ?`, [parsedAdId]);
+      console.log('Images deleted:', { affectedRows: deleteImagesResult[0].affectedRows });
+
+      const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+
+      // Insert existing images
+      for (const imageUrl of existingImageUrls) {
+        console.log('Inserting existing image:', imageUrl);
+        await db.raw(`INSERT INTO ad_images (ad_id, image_url) VALUES (?, ?)`, [parsedAdId, imageUrl]);
+      }
+
+      // Insert new images
+      for (const file of newImages) {
+        const imageUrl = `${baseUrl}/uploads/${file.filename}`;
+        console.log('Inserting new image:', imageUrl);
+        await db.raw(`INSERT INTO ad_images (ad_id, image_url) VALUES (?, ?)`, [parsedAdId, imageUrl]);
+      }
+    }
+
     await db.raw('START TRANSACTION');
     console.log('Started transaction for ad_id:', parsedAdId);
 
@@ -1047,8 +1106,8 @@ async function updateAd(req, res) {
 
       const vehicleUpdateResult = await db.raw(
         `UPDATE vehicle_ads 
-         SET brand = ?, model = ?, mileage = ?, color = ?, gearbox = ?, 
-             base_price = ?, engine_status = ?, chassis_status = ?, body_status = ?
+         SET brand = ?, model = ?, mileage = ?, color = ?, gearbox = ?, base_price = ?, 
+             engine_status = ?, chassis_status = ?, body_status = ?
          WHERE ad_id = ?`,
         [
           brand,
@@ -1064,66 +1123,27 @@ async function updateAd(req, res) {
         ]
       );
       console.log('Vehicle update:', { affectedRows: vehicleUpdateResult[0].affectedRows });
-    } else if (ad_type === 'DIGITAL') {
-      const digitalCheck = await db.raw('SELECT 1 FROM digital_ads WHERE ad_id = ?', [parsedAdId]);
-      if (digitalCheck[0].length === 0) {
+    } else if (['DIGITAL', 'HOME', 'PERSONAL', 'ENTERTAINMENT'].includes(ad_type)) {
+      const tableName = {
+        DIGITAL: 'digital_ads',
+        HOME: 'home_ads',
+        PERSONAL: 'personal_ads',
+        ENTERTAINMENT: 'entertainment_ads',
+      }[ad_type];
+      const categoryCheck = await db.raw(`SELECT 1 FROM ${tableName} WHERE ad_id = ?`, [parsedAdId]);
+      if (categoryCheck[0].length === 0) {
         await db.raw('ROLLBACK');
-        console.log(`Digital ad not found: ad_id=${parsedAdId}`);
-        return res.status(404).json({ message: 'آگهی دیجیتال یافت نشد' });
+        console.log(`${ad_type} ad not found: ad_id=${parsedAdId}`);
+        return res.status(404).json({ message: `آگهی ${ad_type} یافت نشد` });
       }
 
-      const digitalUpdateResult = await db.raw(
-        `UPDATE digital_ads 
+      const categoryUpdateResult = await db.raw(
+        `UPDATE ${tableName} 
          SET brand = ?, model = ?, item_condition = ?
          WHERE ad_id = ?`,
         [brand, model, item_condition, parsedAdId]
       );
-      console.log('Digital update:', { affectedRows: digitalUpdateResult[0].affectedRows });
-    } else if (ad_type === 'HOME') {
-      const homeCheck = await db.raw('SELECT 1 FROM home_ads WHERE ad_id = ?', [parsedAdId]);
-      if (homeCheck[0].length === 0) {
-        await db.raw('ROLLBACK');
-        console.log(`Home ad not found: ad_id=${parsedAdId}`);
-        return res.status(404).json({ message: 'آگهی خانگی یافت نشد' });
-      }
-
-      const homeUpdateResult = await db.raw(
-        `UPDATE home_ads 
-         SET brand = ?, model = ?, item_condition = ?
-         WHERE ad_id = ?`,
-        [brand, model, item_condition, parsedAdId]
-      );
-      console.log('Home update:', { affectedRows: homeUpdateResult[0].affectedRows });
-    } else if (ad_type === 'PERSONAL') {
-      const personalCheck = await db.raw('SELECT 1 FROM personal_ads WHERE ad_id = ?', [parsedAdId]);
-      if (personalCheck[0].length === 0) {
-        await db.raw('ROLLBACK');
-        console.log(`Personal ad not found: ad_id=${parsedAdId}`);
-        return res.status(404).json({ message: 'آگهی شخصی یافت نشد' });
-      }
-
-      const personalUpdateResult = await db.raw(
-        `UPDATE personal_ads 
-         SET brand = ?, model = ?, item_condition = ?
-         WHERE ad_id = ?`,
-        [brand, model, item_condition, parsedAdId]
-      );
-      console.log('Personal update:', { affectedRows: personalUpdateResult[0].affectedRows });
-    } else if (ad_type === 'ENTERTAINMENT') {
-      const entertainmentCheck = await db.raw('SELECT 1 FROM entertainment_ads WHERE ad_id = ?', [parsedAdId]);
-      if (entertainmentCheck[0].length === 0) {
-        await db.raw('ROLLBACK');
-        console.log(`Entertainment ad not found: ad_id=${parsedAdId}`);
-        return res.status(404).json({ message: 'آگهی سرگرمی یافت نشد' });
-      }
-
-      const entertainmentUpdateResult = await db.raw(
-        `UPDATE entertainment_ads 
-         SET brand = ?, model = ?, item_condition = ?
-         WHERE ad_id = ?`,
-        [brand, model, item_condition, parsedAdId]
-      );
-      console.log('Entertainment update:', { affectedRows: entertainmentUpdateResult[0].affectedRows });
+      console.log(`${ad_type} update:`, { affectedRows: categoryUpdateResult[0].affectedRows });
     } else if (ad_type === 'SERVICES') {
       const servicesCheck = await db.raw('SELECT 1 FROM services_ads WHERE ad_id = ?', [parsedAdId]);
       if (servicesCheck[0].length === 0) {
@@ -1141,46 +1161,6 @@ async function updateAd(req, res) {
       console.log('Services update:', { affectedRows: servicesUpdateResult[0].affectedRows });
     }
 
-    // Handle images
-    if (existing_images || (req.files && req.files.images && req.files.images.length > 0)) {
-      console.log('Deleting existing images for ad_id:', parsedAdId);
-      const deleteImagesResult = await db.raw(`DELETE FROM ad_images WHERE ad_id = ?`, [parsedAdId]);
-      console.log('Images deleted:', { affectedRows: deleteImagesResult[0].affectedRows });
-
-      const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
-
-      if (existing_images) {
-        let existingImageUrls;
-        try {
-          console.log('Parsing existing_images:', existing_images);
-          existingImageUrls = JSON.parse(existing_images);
-          console.log('Parsed existing_images:', existingImageUrls);
-          if (!Array.isArray(existingImageUrls)) {
-            throw new Error('existing_images must be an array');
-          }
-          for (const imageUrl of existingImageUrls) {
-            if (!imageUrl || (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://'))) {
-              throw new Error(`Invalid image URL: ${imageUrl}`);
-            }
-            console.log('Inserting existing image:', imageUrl);
-            await db.raw(`INSERT INTO ad_images (ad_id, image_url) VALUES (?, ?)`, [parsedAdId, imageUrl]);
-          }
-        } catch (e) {
-          console.error('Error parsing or inserting existing_images:', { error: e.message, input: existing_images });
-          await db.raw('ROLLBACK');
-          return res.status(400).json({ message: `فرمت existing_images نامعتبر است: ${e.message}` });
-        }
-      }
-
-      if (req.files && req.files.images && req.files.images.length > 0) {
-        const newImageUrls = req.files.images.map(file => `${baseUrl}/uploads/${file.filename}`);
-        console.log('Inserting new images:', newImageUrls);
-        for (const imageUrl of newImageUrls) {
-          await db.raw(`INSERT INTO ad_images (ad_id, image_url) VALUES (?, ?)`, [parsedAdId, imageUrl]);
-        }
-      }
-    }
-
     console.log('Committing transaction for ad_id:', parsedAdId);
     await db.raw('COMMIT');
     console.log('Transaction committed successfully for ad_id:', parsedAdId);
@@ -1192,7 +1172,7 @@ async function updateAd(req, res) {
       stack: error.stack,
       ad_id: parsedAdId || req.params.ad_id,
       body: req.body,
-      files: req.files ? req.files.images : undefined,
+      files: req.files ? req.files : null,
     });
     res.status(500).json({ message: `خطا در ویرایش آگهی: ${error.message}` });
   }

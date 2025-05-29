@@ -54,45 +54,87 @@ class ApiService {
     }
   }
 
-  Future<void> updateAd({required Map<String, dynamic> adData}) async {
-    final adId = adData['ad_id'] as int?;
-    final title = adData['title'] as String?;
-    final description = adData['description'] as String?;
-    final adType = adData['ad_type'] as String?;
-    final phoneNumber = adData['owner_phone_number'] as String?;
+  Future<void> updateAd({
+    required Map<String, dynamic> adData,
+    List<File> images = const [],
+    List<String> existingImages = const [],
+  }) async {
+    try {
+      final adId = adData['ad_id'] as int?;
+      if (adId == null || adId <= 0) {
+        throw Exception('شناسه آگهی نامعتبر است');
+      }
 
-    // Validate inputs
-    if (adId == null || adId <= 0) {
-      throw Exception('شناسه آگهی نامعتبر است');
-    }
-    if (title == null || title.isEmpty) {
-      throw Exception('عنوان آگهی نمی‌تواند خالی باشد');
-    }
-    if (description == null || description.isEmpty) {
-      throw Exception('توضیحات آگهی نمی‌تواند خالی باشد');
-    }
-    if (adType == null ||
-        !['VEHICLE', 'REAL_ESTATE', 'OTHER'].contains(adType)) {
-      throw Exception('نوع آگهی نامعتبر است');
-    }
-    if (phoneNumber == null || phoneNumber.isEmpty) {
-      throw Exception('شماره تلفن نمی‌تواند خالی باشد');
-    }
+      // Log the adData to verify all fields
+      print('Sending updateAd request with adData: $adData');
+      print('Images count: ${images.length}');
+      print('Existing images: $existingImages');
 
-    final uri = Uri.parse('$apiBaseUrl/ads/$adId');
-    print('Updating ad at: $uri with data: $adData');
-    final response = await http.put(
-      uri,
-      headers: _getHeaders(),
-      body: jsonEncode(adData),
-    );
+      final uri = Uri.parse('$apiBaseUrl/ads/$adId');
+      final request = http.MultipartRequest('PUT', uri);
 
-    print('Update ad status: ${response.statusCode}');
-    print('Update ad body: ${response.body}');
+      // Remove null values from adData and add fields individually
+      final cleanedAdData = Map<String, dynamic>.from(adData)
+        ..removeWhere((key, value) => value == null);
 
-    if (response.statusCode != 200) {
-      throw Exception(
-          'Failed to update ad: ${response.statusCode} ${response.body}');
+      // Add each field to request.fields
+      cleanedAdData.forEach((key, value) {
+        request.fields[key] = value.toString();
+      });
+
+      // Add existing images as a JSON string
+      if (existingImages.isNotEmpty) {
+        request.fields['existing_images'] = jsonEncode(existingImages);
+      }
+
+      // Add new images
+      for (var image in images) {
+        if (!await image.exists()) {
+          print('Image does not exist: ${image.path}');
+          throw Exception('فایل تصویر وجود ندارد: ${image.path}');
+        }
+        final fileExtension = image.path.split('.').last.toLowerCase();
+        if (!['jpg', 'jpeg', 'png', 'gif'].contains(fileExtension)) {
+          throw Exception('فقط تصاویر JPEG، PNG و GIF مجاز هستند');
+        }
+        final mimeType = fileExtension == 'jpg' || fileExtension == 'jpeg'
+            ? 'image/jpeg'
+            : fileExtension == 'png'
+                ? 'image/png'
+                : 'image/gif';
+        final file = await http.MultipartFile.fromPath(
+          'images', // This key must match what the backend expects
+          image.path,
+          contentType: MediaType('image', mimeType.split('/')[1]),
+        );
+        request.files.add(file);
+        print('Added image: ${image.path}, MIME: $mimeType');
+      }
+
+      // Log request details
+      print('Request fields: ${request.fields}');
+      print('Request files: ${request.files.map((f) => f.filename).toList()}');
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+
+      print('Update ad status: ${response.statusCode}');
+      print('Update ad body: $responseBody');
+
+      if (response.statusCode == 200) {
+        return;
+      } else {
+        try {
+          final errorData = jsonDecode(responseBody);
+          throw Exception(
+              'ویرایش آگهی ناموفق: ${errorData['message'] ?? responseBody}');
+        } catch (e) {
+          throw Exception('ویرایش آگهی ناموفق: $responseBody');
+        }
+      }
+    } catch (e) {
+      print('Error updating ad in ApiService: $e');
+      throw Exception('Error updating ad: $e');
     }
   }
 

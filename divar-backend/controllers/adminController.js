@@ -2,7 +2,6 @@ const db = require('../config/db');
 const bcrypt = require('bcrypt');
 const moment = require('moment-timezone');
 
-
 const adminController = {
   async login(req, res) {
     try {
@@ -27,7 +26,8 @@ const adminController = {
       res.status(500).json({ message: 'خطای سرور' });
     }
   },
-async getUsersCount(req, res) {
+
+  async getUsersCount(req, res) {
     try {
       const adminId = req.headers['x-admin-id'];
       if (!adminId || isNaN(adminId)) {
@@ -43,7 +43,7 @@ async getUsersCount(req, res) {
       const tehranTime = moment().tz('Asia/Tehran');
       const today = tehranTime.format('YYYY-MM-DD');
 
-      // Get total users
+      // دریافت تعداد کل کاربران
       const [{ totalUsers }] = await db('users').count('* as totalUsers');
 
       let statsQuery;
@@ -52,36 +52,36 @@ async getUsersCount(req, res) {
       switch (time_period) {
         case 'day':
           statsQuery = db('users')
-            .select(db.raw('HOUR(created_at) as hour'))
+            .select(db.raw('HOUR(CONVERT_TZ(created_at, "UTC", "Asia/Tehran")) as hour'))
             .count('* as count')
-            .whereRaw('DATE(created_at) = ?', [today])
-            .groupByRaw('HOUR(created_at)')
+            .whereRaw('DATE(CONVERT_TZ(created_at, "UTC", "Asia/Tehran")) = ?', [today])
+            .groupByRaw('HOUR(CONVERT_TZ(created_at, "UTC", "Asia/Tehran"))')
             .orderBy('hour', 'asc');
           break;
         case 'week':
-          const startOfWeek = tehranTime.clone().startOf('week').format('YYYY-MM-DD'); // شنبه
+          const startOfWeek = tehranTime.clone().startOf('week').format('YYYY-MM-DD'); // شروع هفته میلادی
           statsQuery = db('users')
-            .select(db.raw('DATE(created_at) as date'))
+            .select(db.raw('DATE(CONVERT_TZ(created_at, "UTC", "Asia/Tehran")) as date'))
             .count('* as count')
             .whereBetween('created_at', [startOfWeek, today])
-            .groupByRaw('DATE(created_at)')
+            .groupByRaw('DATE(CONVERT_TZ(created_at, "UTC", "Asia/Tehran"))')
             .orderBy('date', 'asc');
           break;
         case 'month':
           statsQuery = db('users')
-            .select(db.raw('DATE_FORMAT(created_at, "%Y-%m") as date'))
+            .select(db.raw('DATE_FORMAT(CONVERT_TZ(created_at, "UTC", "Asia/Tehran"), "%Y-%m") as date'))
             .count('* as count')
             .where('created_at', '>=', db.raw('DATE_SUB(CURDATE(), INTERVAL 12 MONTH)'))
-            .groupByRaw('DATE_FORMAT(created_at, "%Y-%m")')
+            .groupByRaw('DATE_FORMAT(CONVERT_TZ(created_at, "UTC", "Asia/Tehran"), "%Y-%m")')
             .orderBy('date', 'desc')
             .limit(12);
           break;
         case 'year':
           statsQuery = db('users')
-            .select(db.raw('YEAR(created_at) as date'))
+            .select(db.raw('YEAR(CONVERT_TZ(created_at, "UTC", "Asia/Tehran")) as date'))
             .count('* as count')
             .where('created_at', '>=', db.raw('DATE_SUB(CURDATE(), INTERVAL 5 YEAR)'))
-            .groupByRaw('YEAR(created_at)')
+            .groupByRaw('YEAR(CONVERT_TZ(created_at, "UTC", "Asia/Tehran"))')
             .orderBy('date', 'desc')
             .limit(5);
           break;
@@ -98,7 +98,7 @@ async getUsersCount(req, res) {
     }
   },
 
-async getAdsCount(req, res) {
+  async getAdsCount(req, res) {
     try {
       const adminId = req.headers['x-admin-id'];
       if (!adminId || isNaN(adminId)) {
@@ -113,6 +113,7 @@ async getAdsCount(req, res) {
       // تنظیم منطقه زمانی به تهران
       const tehranTime = moment().tz('Asia/Tehran');
       const today = tehranTime.format('YYYY-MM-DD');
+      console.log(`Tehran time: ${tehranTime.format()}, Today: ${today}`);
 
       // دریافت تعداد کلی آگهی‌ها بر اساس نوع
       let countQuery = db('advertisements')
@@ -137,8 +138,7 @@ async getAdsCount(req, res) {
             .orderBy('hour', 'asc');
           break;
         case 'week':
-          // بازه هفته از شنبه تا امروز
-          const startOfWeek = tehranTime.clone().startOf('week').format('YYYY-MM-DD'); // شنبه
+          const startOfWeek = tehranTime.clone().startOf('week').format('YYYY-MM-DD');
           statsQuery = db('advertisements')
             .select(db.raw('DATE(created_at) as date'))
             .count('* as count')
@@ -147,13 +147,12 @@ async getAdsCount(req, res) {
             .orderBy('date', 'asc');
           break;
         case 'month':
-          // بازه ۱۲ ماه گذشته
           statsQuery = db('advertisements')
             .select(db.raw('DATE_FORMAT(created_at, "%Y-%m") as date'))
             .count('* as count')
             .whereRaw('created_at >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)')
             .groupByRaw('DATE_FORMAT(created_at, "%Y-%m")')
-            .orderBy('date', 'asc'); // تغییر به asc برای نمایش از قدیمی
+            .orderBy('date', 'asc');
           break;
         case 'year':
           statsQuery = db('advertisements')
@@ -175,6 +174,7 @@ async getAdsCount(req, res) {
       res.status(500).json({ message: 'خطای سرور' });
     }
   },
+
   async getCommentsCount(req, res) {
     try {
       const adminId = req.headers['x-admin-id'];

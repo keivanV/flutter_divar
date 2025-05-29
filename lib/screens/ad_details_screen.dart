@@ -373,7 +373,8 @@ class _AdDetailsScreenState extends State<AdDetailsScreen> {
                             },
                             itemBuilder: (context, index) => Image.network(
                               ad.imageUrls[index],
-                              fit: BoxFit.cover,
+                              alignment: Alignment.center,
+                              fit: BoxFit.fitWidth,
                               errorBuilder: (context, error, stackTrace) =>
                                   const Center(
                                 child: Icon(

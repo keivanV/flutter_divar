@@ -62,7 +62,7 @@ class AdminProvider with ChangeNotifier {
       final response = await http.get(
         Uri.parse(
             '$_apiBaseUrl/admin/ads/count?${query}time_period=$timePeriod'),
-        headers: {'x-admin-id': adType != null ? adType : adminId.toString()},
+        headers: {'x-admin-id': adminId.toString()}, // اصلاح: همیشه adminId
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

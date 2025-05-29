@@ -9,6 +9,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 import 'package:timezone/timezone.dart' as tz;
+// import 'package:intl/intl.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -67,10 +68,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void _showCommentsDialog(BuildContext context, int adId, String adTitle) {
     if (adId <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
             'شناسه آگهی نامعتبر است',
-            style: TextStyle(fontFamily: 'Vazir'),
+            style: const TextStyle(fontFamily: 'Vazir'),
             textDirection: TextDirection.rtl,
           ),
           backgroundColor: Colors.red,
@@ -1018,36 +1019,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            subtitle: FutureBuilder(
-                              future: ad == null
-                                  ? Future.value(ad)
-                                  : Provider.of<AdProvider>(context,
-                                          listen: false)
-                                      .fetchAdById(comment.adId),
-                              builder: (context, snapshot) {
-                                if (snapshot.connectionState ==
-                                    ConnectionState.waiting) {
-                                  return const Text(
-                                    'در حال بارگذاری...',
-                                    style: TextStyle(
-                                      fontFamily: 'Vazir',
-                                      color: Colors.grey,
-                                    ),
-                                    textDirection: TextDirection.rtl,
-                                  );
-                                }
-                                final fetchedAd = snapshot.data as Ad?;
-                                return Text(
-                                  'آگهی: ${fetchedAd?.title ?? 'آگهی حذف یا یافت نشد'}',
-                                  style: const TextStyle(
-                                    fontFamily: 'Vazir',
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                  textDirection: TextDirection.rtl,
-                                );
-                              },
-                            ),
+                            // subtitle: FutureBuilder(
+                            //   future: ad == null
+                            //       ? Future.value(ad)
+                            //       : Provider.of<AdProvider>(context,
+                            //               listen: false)
+                            //           .fetchAdById(comment.adId),
+                            //   builder: (context, snapshot) {
+                            //     if (snapshot.connectionState ==
+                            //         ConnectionState.waiting) {
+                            //       return const Text(
+                            //         'در حال بارگذاری...',
+                            //         style: TextStyle(
+                            //           fontFamily: 'Vazir',
+                            //           color: Colors.grey,
+                            //         ),
+                            //         textDirection: TextDirection.rtl,
+                            //       );
+                            //     }
+                            //     final fetchedAd = snapshot.data as Ad?;
+                            //     return Text(
+                            //       'آگهی: ${fetchedAd?.title ?? 'آگهی حذف یا یافت نشد'}',
+                            //       style: const TextStyle(
+                            //         fontFamily: 'Vazir',
+                            //         fontSize: 12,
+                            //         color: Colors.grey,
+                            //       ),
+                            //       textDirection: TextDirection.rtl,
+                            //     );
+                            //   },
+                            // ),
                             trailing: IconButton(
                               icon: const FaIcon(
                                 FontAwesomeIcons.trash,
@@ -1229,6 +1230,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       AdminProvider adminProvider, int tabIndex) {
     final data =
         tabIndex == 0 ? adminProvider.userStats : adminProvider.adStats;
+    print('Data for timePeriod $_selectedTimePeriod: $data'); // لاگ داده‌ها
 
     List<FlSpot> spots = [];
     if (_selectedTimePeriod == 'day') {
@@ -1240,24 +1242,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         spots.add(FlSpot(i.toDouble(), (hourData['count'] as num).toDouble()));
       }
     } else if (_selectedTimePeriod == 'week') {
-      // محاسبه روزهای هفته از شنبه تا امروز
-      final tehranTime = tz.TZDateTime.now(tz.getLocation('Asia/Tehran'));
-      final startOfWeek = tehranTime
-          .subtract(Duration(days: tehranTime.weekday % 7)); // شروع هفته (شنبه)
-      for (int i = 0; i <= (tehranTime.weekday % 7); i++) {
-        final date = startOfWeek.add(Duration(days: i));
-        final dateStr =
-            '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-        final dayData = data.firstWhere(
-          (item) => item['date'] == dateStr,
-          orElse: () => {'date': dateStr, 'count': 0},
+      // استفاده مستقیم از داده‌های سرور
+      spots = data.asMap().entries.map((entry) {
+        final index = entry.key;
+        final item = entry.value;
+        if (item['date'] == null) {
+          print('Warning: null date at index $index');
+          return FlSpot(index.toDouble(), 0);
+        }
+        return FlSpot(
+          index.toDouble(),
+          (item['count'] as num).toDouble(),
         );
-        spots.add(FlSpot(i.toDouble(), (dayData['count'] as num).toDouble()));
-      }
+      }).toList();
     } else if (_selectedTimePeriod == 'month') {
       spots = data.asMap().entries.map((entry) {
         final index = entry.key;
         final item = entry.value;
+        if (item['date'] == null) {
+          print('Warning: null date at index $index');
+          return FlSpot(index.toDouble(), 0);
+        }
         return FlSpot(
           index.toDouble(),
           (item['count'] as num).toDouble(),
@@ -1267,6 +1272,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       spots = data.asMap().entries.map((entry) {
         final index = entry.key;
         final item = entry.value;
+        if (item['date'] == null) {
+          print('Warning: null date at index $index');
+          return FlSpot(index.toDouble(), 0);
+        }
         return FlSpot(
           index.toDouble(),
           (item['count'] as num).toDouble(),
@@ -1292,63 +1301,67 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   String _getDateLabel(
       int index, String timePeriod, AdminProvider adminProvider) {
-    if (timePeriod == 'day') {
-      return '${index.toString().padLeft(2, '0')}:00';
-    } else if (timePeriod == 'week') {
-      final tehranTime = tz.TZDateTime.now(tz.getLocation('Asia/Tehran'));
-      final startOfWeek =
-          tehranTime.subtract(Duration(days: tehranTime.weekday % 7)); // شنبه
-      final date = startOfWeek.add(Duration(days: index));
-      final jalali = Jalali.fromDateTime(date);
-      return '${jalali.day} ${_getPersianMonthName(jalali.month)}';
-    }
-
     final data = _selectedTabIndex == 0
         ? adminProvider.userStats
         : adminProvider.adStats;
-    if (index >= data.length || index < 0) return '';
 
-    final dateStr = data[index]['date'] as String;
+    if (timePeriod == 'day') {
+      return '${index.toString().padLeft(2, '0')}:00';
+    }
+
+    if (index >= data.length || index < 0) {
+      print('Invalid index: $index, data length: ${data.length}');
+      return '';
+    }
+
+    // بررسی null بودن date
+    final dateStr = data[index]['date'];
+    if (dateStr == null) {
+      print('Warning: date is null at index $index for timePeriod $timePeriod');
+      return '';
+    }
+
     late DateTime date;
     try {
-      if (timePeriod == 'year') {
+      if (timePeriod == 'week') {
+        // فرمت تاریخ دریافتی از سرور: YYYY-MM-DD
+        date = DateTime.parse(dateStr);
+        return '${date.day}/${date.month}'; // نمایش به فرمت DD/MM
+      } else if (timePeriod == 'year') {
         date = DateTime(int.parse(dateStr), 1, 1);
+        return date.year.toString();
       } else if (timePeriod == 'month') {
         final parts = dateStr.split('-');
+        if (parts.length < 2) {
+          print('Invalid date format: $dateStr');
+          return '';
+        }
         date = DateTime(int.parse(parts[0]), int.parse(parts[1]), 1);
+        return '${date.month}/${date.year}'; // نمایش به فرمت MM/YYYY
       } else {
         date = DateTime.parse(dateStr);
+        return '${date.day}/${date.month}';
       }
     } catch (e) {
       print('Error parsing date: $dateStr, error: $e');
       return '';
     }
-
-    final jalali = Jalali.fromDateTime(date);
-    switch (timePeriod) {
-      case 'month':
-        return _getPersianMonthName(jalali.month);
-      case 'year':
-        return jalali.year.toString();
-      default:
-        return '';
-    }
   }
 
-  String _getPersianMonthName(int month) {
+  String _getEnglishMonthName(int month) {
     const months = [
-      'فروردین',
-      'اردیبهشت',
-      'خرداد',
-      'تیر',
-      'مرداد',
-      'شهریور',
-      'مهر',
-      'آبان',
-      'آذر',
-      'دی',
-      'بهمن',
-      'اسفند'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
     ];
     return months[month - 1];
   }

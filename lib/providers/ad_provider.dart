@@ -5,6 +5,10 @@ import '../services/api_service.dart';
 import '../models/province.dart';
 import '../models/city.dart';
 
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'dart:convert';
+
 class AdProvider with ChangeNotifier {
   List<Ad> _ads = [];
   List<Ad> _userAds = [];
@@ -35,6 +39,8 @@ class AdProvider with ChangeNotifier {
   int? get selectedCityId => _cityId;
 
   final ApiService _apiService = ApiService();
+  static const String apiBaseUrl = 'http://localhost:5000/api';
+
   static const List<String> _validSortByValues = [
     'newest',
     'oldest',
@@ -426,107 +432,290 @@ class AdProvider with ChangeNotifier {
     required int adId,
     required String title,
     required String description,
-    int? price, // For VEHICLE and OTHER ads
-    int? totalPrice, // For REAL_ESTATE SALE ads
-    int? deposit, // For REAL_ESTATE RENT ads
-    int? monthlyRent, // For REAL_ESTATE RENT ads
-    required String phoneNumber,
     required String adType,
+    String? price,
+    required int provinceId,
+    required int cityId,
+    List<File> images = const [],
+    List<String> existingImages = const [],
+    required String phoneNumber,
     String? realEstateType,
+    int? area,
+    int? constructionYear,
+    int? rooms,
+    int? totalPrice,
+    int? pricePerMeter,
+    bool? hasParking,
+    bool? hasStorage,
+    bool? hasBalcony,
+    int? deposit,
+    int? monthlyRent,
+    int? floor,
+    String? brand,
+    String? model,
+    int? mileage,
+    String? color,
+    String? gearbox,
+    int? basePrice,
+    String? engineStatus,
+    String? chassisStatus,
+    String? bodyStatus,
+    String? itemCondition,
+    String? serviceType,
+    int? serviceDuration,
   }) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      if (adId <= 0) {
-        throw Exception('شناسه آگهی نامعتبر است');
+      // Validate adId
+      if (adId <= 0) throw Exception('شناسه آگهی نامعتبر است');
+
+      // Fetch existing ad to merge with new data
+      Ad? existingAd = await fetchAdById(adId);
+      if (existingAd == null) {
+        throw Exception('آگهی با شناسه $adId یافت نشد');
       }
-      if (title.isEmpty) {
+
+      // Merge with existing ad data, ensuring no null values for required fields
+      title = title.isNotEmpty ? title : existingAd.title;
+      description =
+          description.isNotEmpty ? description : existingAd.description;
+      adType = adType.isNotEmpty ? adType : existingAd.adType;
+      provinceId = provinceId > 0 ? provinceId : existingAd.provinceId;
+      cityId = cityId > 0 ? cityId : existingAd.cityId;
+      phoneNumber =
+          phoneNumber.isNotEmpty ? phoneNumber : existingAd.ownerPhoneNumber;
+
+      // Validate merged required fields
+      if (title.trim().isEmpty)
         throw Exception('عنوان آگهی نمی‌تواند خالی باشد');
-      }
-      if (description.isEmpty) {
+      if (description.trim().isEmpty)
         throw Exception('توضیحات آگهی نمی‌تواند خالی باشد');
-      }
-      if (phoneNumber.isEmpty) {
-        throw Exception('شماره تلفن نمی‌تواند خالی باشد');
-      }
-      if (!['VEHICLE', 'REAL_ESTATE', 'OTHER'].contains(adType)) {
+      if (![
+        'REAL_ESTATE',
+        'VEHICLE',
+        'DIGITAL',
+        'HOME',
+        'SERVICES',
+        'PERSONAL',
+        'ENTERTAINMENT'
+      ].contains(adType)) {
         throw Exception('نوع آگهی نامعتبر است');
       }
-      if (adType == 'VEHICLE' && (price == null || price < 0)) {
-        throw Exception('قیمت پایه برای آگهی خودرو الزامی و باید غیرمنفی باشد');
-      }
+      if (phoneNumber.trim().isEmpty)
+        throw Exception('شماره تلفن نمی‌تواند خالی باشد');
+      if (provinceId <= 0) throw Exception('شناسه استان نامعتبر است');
+      if (cityId <= 0) throw Exception('شناسه شهر نامعتبر است');
+
+      // Handle price based on ad type
+      String? effectivePrice = price;
       if (adType == 'REAL_ESTATE') {
+        realEstateType = realEstateType ?? existingAd.realEstateType;
         if (realEstateType == null ||
             !['SALE', 'RENT'].contains(realEstateType)) {
-          throw Exception('نوع آگهی املاک (فروش یا اجاره) الزامی است');
+          throw Exception('نوع معامله املاک (فروش یا اجاره) الزامی است');
         }
-        if (realEstateType == 'SALE' &&
-            (totalPrice == null || totalPrice < 0)) {
-          throw Exception(
-              'قیمت کل برای آگهی فروش املاک الزامی و باید غیرمنفی باشد');
-        }
-        if (realEstateType == 'RENT') {
+        area = area ?? existingAd.area;
+        constructionYear = constructionYear ?? existingAd.constructionYear;
+        rooms = rooms ?? existingAd.rooms;
+        floor = floor ?? existingAd.floor;
+
+        if (realEstateType == 'SALE') {
+          totalPrice = totalPrice ?? existingAd.totalPrice;
+          if (totalPrice == null || totalPrice < 0) {
+            throw Exception(
+                'قیمت کل برای فروش املاک الزامی و باید عدد معتبر باشد');
+          }
+          effectivePrice = totalPrice.toString();
+          if (area != null && totalPrice != null && area > 0) {
+            pricePerMeter = totalPrice ~/ area;
+          }
+        } else if (realEstateType == 'RENT') {
+          deposit = deposit ?? existingAd.deposit;
+          monthlyRent = monthlyRent ?? existingAd.monthlyRent;
           if (deposit == null || deposit < 0) {
             throw Exception(
-                'ودیعه برای آگهی اجاره املاک الزامی و باید غیرمنفی باشد');
+                'ودیعه برای اجاره املاک الزامی و باید عدد معتبر باشد');
           }
           if (monthlyRent == null || monthlyRent < 0) {
             throw Exception(
-                'اجاره ماهیانه برای آگهی اجاره املاک الزامی و باید غیرمنفی باشد');
+                'اجاره ماهانه برای اجاره املاک الزامی و باید عدد معتبر باشد');
           }
+          effectivePrice = deposit.toString();
+        }
+
+        if (area == null || area <= 0) {
+          throw Exception('مساحت باید یک عدد معتبر و بزرگ‌تر از صفر باشد');
+        }
+        if (constructionYear == null ||
+            constructionYear < 1300 ||
+            constructionYear > 1404) {
+          throw Exception('سال ساخت باید بین ۱۳۰۰ تا ۱۴۰۴ باشد');
+        }
+        if (rooms == null || rooms < 0) {
+          throw Exception('تعداد اتاق باید عدد معتبر غیرمنفی باشد');
+        }
+        if (floor == null) {
+          throw Exception('طبقه باید عدد معتبر باشد');
+        }
+      } else if (adType == 'VEHICLE') {
+        brand = brand ?? existingAd.brand;
+        model = model ?? existingAd.model;
+        mileage = mileage ?? existingAd.mileage;
+        color = color ?? existingAd.color;
+        gearbox = gearbox ?? existingAd.gearbox;
+        basePrice = basePrice ?? existingAd.basePrice;
+        engineStatus = engineStatus ?? existingAd.engineStatus;
+        chassisStatus = chassisStatus ?? existingAd.chassisStatus;
+        bodyStatus = bodyStatus ?? existingAd.bodyStatus;
+
+        if (brand == null || brand.trim().isEmpty) {
+          throw Exception('برند خودرو الزامی است');
+        }
+        if (model == null || model.trim().isEmpty) {
+          throw Exception('مدل خودرو الزامی است');
+        }
+        if (mileage == null || mileage < 0) {
+          throw Exception('کارکرد خودرو باید عدد معتبر غیرمنفی باشد');
+        }
+        if (color == null || color.trim().isEmpty) {
+          throw Exception('رنگ خودرو الزامی است');
+        }
+        if (gearbox == null || !['MANUAL', 'AUTOMATIC'].contains(gearbox)) {
+          throw Exception('نوع گیربکس نامعتبر است');
+        }
+        if (basePrice == null || basePrice < 0) {
+          throw Exception('قیمت پایه خودرو الزامی و باید عدد معتبر باشد');
+        }
+        if (engineStatus == null ||
+            !['HEALTHY', 'NEEDS_REPAIR'].contains(engineStatus)) {
+          throw Exception('وضعیت موتور نامعتبر است');
+        }
+        if (chassisStatus == null ||
+            !['HEALTHY', 'IMPACTED'].contains(chassisStatus)) {
+          throw Exception('وضعیت شاسی نامعتبر است');
+        }
+        if (bodyStatus == null ||
+            !['HEALTHY', 'MINOR_SCRATCH', 'ACCIDENTED'].contains(bodyStatus)) {
+          throw Exception('وضعیت بدنه نامعتبر است');
+        }
+        effectivePrice = basePrice.toString();
+      } else if (['DIGITAL', 'HOME', 'PERSONAL', 'ENTERTAINMENT']
+          .contains(adType)) {
+        brand = brand ?? existingAd.brand;
+        model = model ?? existingAd.model;
+        itemCondition = itemCondition ?? existingAd.itemCondition;
+
+        if (brand == null || brand.trim().isEmpty) {
+          throw Exception('برند الزامی است');
+        }
+        if (model == null || model.trim().isEmpty) {
+          throw Exception('مدل الزامی است');
+        }
+        if (itemCondition == null || !['NEW', 'USED'].contains(itemCondition)) {
+          throw Exception('وضعیت باید "نو" یا "کارکرده" باشد');
+        }
+        effectivePrice = price ?? existingAd.price?.toString() ?? '0';
+        if (effectivePrice == null ||
+            int.tryParse(effectivePrice) == null ||
+            int.parse(effectivePrice) < 0) {
+          throw Exception('قیمت باید عدد معتبر غیرمنفی باشد');
+        }
+      } else if (adType == 'SERVICES') {
+        serviceType = serviceType ?? existingAd.serviceType;
+        serviceDuration = serviceDuration ?? existingAd.serviceDuration;
+
+        if (serviceType == null || serviceType.trim().isEmpty) {
+          throw Exception('نوع خدمت الزامی است');
+        }
+        if (serviceDuration != null && serviceDuration <= 0) {
+          throw Exception('مدت زمان خدمت باید عدد مثبت باشد');
+        }
+        effectivePrice = price ?? existingAd.price?.toString() ?? '0';
+        if (effectivePrice == null ||
+            int.tryParse(effectivePrice) == null ||
+            int.parse(effectivePrice) < 0) {
+          throw Exception('هزینه خدمت باید عدد معتبر غیرمنفی باشد');
         }
       }
 
-      print(
-          'updateAd called with: adId=$adId, title=$title, description=$description, '
-          'price=$price, totalPrice=$totalPrice, deposit=$deposit, monthlyRent=$monthlyRent, '
-          'phoneNumber=$phoneNumber, adType=$adType, realEstateType=$realEstateType');
+      // Ensure price is set for non-REAL_ESTATE ads
+      if (effectivePrice == null && adType != 'REAL_ESTATE') {
+        throw Exception('قیمت الزامی است');
+      }
 
+      // Build adData map
       final adData = {
         'ad_id': adId,
         'title': title,
         'description': description,
         'ad_type': adType,
+        'price': effectivePrice,
+        'province_id': provinceId,
+        'city_id': cityId,
         'owner_phone_number': phoneNumber,
-        if (adType == 'VEHICLE') 'base_price': price,
         if (adType == 'REAL_ESTATE') ...{
           'real_estate_type': realEstateType,
-          if (realEstateType == 'SALE') ...{
-            'total_price': totalPrice,
-            'price': totalPrice,
-          },
-          if (realEstateType == 'RENT') ...{
-            'total_price': 0, // Set total_price to 0 for RENT ads
-            'deposit': deposit,
-            'monthly_rent': monthlyRent,
-            'price': deposit,
-          },
+          'area': area,
+          'construction_year': constructionYear,
+          'rooms': rooms,
+          'total_price': totalPrice,
+          'price_per_meter': pricePerMeter,
+          'has_parking': hasParking ?? existingAd.hasParking ?? false,
+          'has_storage': hasStorage ?? existingAd.hasStorage ?? false,
+          'has_balcony': hasBalcony ?? existingAd.hasBalcony ?? false,
+          'deposit': deposit,
+          'monthly_rent': monthlyRent,
+          'floor': floor,
         },
-        if (adType == 'OTHER') 'price': price,
+        if (adType == 'VEHICLE') ...{
+          'brand': brand,
+          'model': model,
+          'mileage': mileage,
+          'color': color,
+          'gearbox': gearbox,
+          'base_price': basePrice,
+          'engine_status': engineStatus,
+          'chassis_status': chassisStatus,
+          'body_status': bodyStatus,
+        },
+        if (['DIGITAL', 'HOME', 'PERSONAL', 'ENTERTAINMENT']
+            .contains(adType)) ...{
+          'brand': brand,
+          'model': model,
+          'item_condition': itemCondition,
+        },
+        if (adType == 'SERVICES') ...{
+          'service_type': serviceType,
+          'service_duration': serviceDuration,
+        },
       };
 
-      print('Sending update request: $adData');
-      await _apiService.updateAd(adData: adData);
-      print('Ad updated: $adId');
+      // Log the adData to verify all fields
+      print('Prepared adData: $adData');
 
-      await Future.wait([
-        fetchUserAds(phoneNumber),
-        fetchAds(
-          adType: _adType,
-          provinceId: _provinceId,
-          cityId: _cityId,
-          sortBy: _sortBy,
-        ),
-      ]);
+      // Send update request
+      await _apiService.updateAd(
+        adData: adData,
+        images: images,
+        existingImages: existingImages,
+      );
 
-      print('Updated ads list: ${_ads.map((ad) => ad.toJson()).toList()}');
-    } catch (e, stackTrace) {
+      // Refresh ads
+      await fetchAds(
+        adType: _adType,
+        provinceId: _provinceId,
+        cityId: _cityId,
+        sortBy: _sortBy,
+      );
+      await fetchUserAds(phoneNumber);
+    } catch (e) {
+      print('Error updating ad: $e');
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      print('Error updating ad: $_errorMessage');
-      print('Stack trace: $stackTrace');
-      throw Exception('خطا در به‌روزرسانی آگهی: $_errorMessage');
+      notifyListeners();
+      throw Exception('Error updating ad: $_errorMessage');
     } finally {
       _isLoading = false;
       notifyListeners();

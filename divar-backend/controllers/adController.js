@@ -708,175 +708,495 @@ async function testSearch(req, res) {
     res.status(500).json({ message: error.message });
   }
 }
-
-
-
 async function updateAd(req, res) {
-    try {
-      const { ad_id } = req.params;
-      const {
-        title,
-        description,
-        ad_type,
-        price,
-        base_price,
-        total_price,
-        deposit,
-        monthly_rent,
-        real_estate_type,
-        owner_phone_number,
-        brand,
-        model,
-        item_condition,
-        service_type,
-        service_duration,
-      } = req.body;
+  let parsedAdId;
+  try {
+    const { ad_id } = req.params;
+    console.log('Received updateAd request:', {
+      ad_id,
+      body: req.body,
+      files: req.files ? req.files.images : undefined,
+    });
 
-      const missingFields = [];
-      if (!title || title.trim() === '') missingFields.push('title');
-      if (!description || description.trim() === '') missingFields.push('description');
-      if (!ad_type || !['REAL_ESTATE', 'VEHICLE', 'DIGITAL', 'HOME', 'SERVICES', 'PERSONAL', 'ENTERTAINMENT'].includes(ad_type)) {
-        missingFields.push('ad_type');
-      }
-      if (!owner_phone_number || owner_phone_number.trim() === '') missingFields.push('owner_phone_number');
+    // Validate ad_id
+    parsedAdId = parseInt(ad_id);
+    if (isNaN(parsedAdId)) {
+      console.log('Invalid ad_id:', ad_id);
+      return res.status(400).json({ message: 'شناسه آگهی نامعتبر است' });
+    }
 
-      if (ad_type === 'REAL_ESTATE') {
-        if (!real_estate_type || !['SALE', 'RENT'].includes(real_estate_type)) missingFields.push('real_estate_type');
-        if (real_estate_type === 'SALE' && (!total_price || isNaN(parseInt(total_price)))) missingFields.push('total_price');
-        if (real_estate_type === 'RENT') {
-          if (!deposit || isNaN(parseInt(deposit))) missingFields.push('deposit');
-          if (!monthly_rent || isNaN(parseInt(monthly_rent))) missingFields.push('monthly_rent');
-        }
-      } else if (ad_type === 'VEHICLE' && (!base_price || isNaN(parseInt(base_price)))) {
-        missingFields.push('base_price');
-      } else if (['DIGITAL', 'HOME', 'PERSONAL', 'ENTERTAINMENT'].includes(ad_type)) {
-        if (!brand || brand.trim() === '') missingFields.push('brand');
-        if (!model || model.trim() === '') missingFields.push('model');
-        if (!item_condition || !['NEW', 'USED'].includes(item_condition)) missingFields.push('item_condition');
-      } else if (ad_type === 'SERVICES') {
-        if (!service_type || service_type.trim() === '') missingFields.push('service_type');
-        if (service_duration && isNaN(parseInt(service_duration))) missingFields.push('service_duration');
-      }
+    // Check if req.body is empty
+    if (Object.keys(req.body).length === 0 && (!req.files || !req.files.images)) {
+      console.log('No data provided for update:', { ad_id });
+      return res.status(400).json({ message: 'هیچ داده‌ای برای به‌روزرسانی ارائه نشده است' });
+    }
 
-      if (!price || isNaN(parseInt(price))) missingFields.push('price');
+    // Fetch existing ad
+    const adQuery = `
+      SELECT 
+        a.title, a.description, a.ad_type, a.price, a.province_id, a.city_id, 
+        a.owner_phone_number
+      FROM advertisements a
+      WHERE a.ad_id = ?
+    `;
+    const adResult = await db.raw(adQuery, [parsedAdId]);
+    if (adResult[0].length === 0) {
+      console.log(`Ad not found: ad_id=${parsedAdId}`);
+      return res.status(404).json({ message: 'آگهی یافت نشد' });
+    }
+    const existingAd = adResult[0][0];
 
-      if (missingFields.length > 0) {
-        return res.status(400).json({
-          message: `فیلدهای الزامی پر نشده‌اند: ${missingFields.join(', ')}`,
-          missingFields,
-        });
-      }
+    // Fetch existing specific details based on ad_type
+    let existingSpecificDetails = {};
+    if (existingAd.ad_type === 'REAL_ESTATE') {
+      const realEstateQuery = `
+        SELECT real_estate_type, area, construction_year, rooms, total_price, 
+               price_per_meter, has_parking, has_storage, has_balcony, deposit, 
+               monthly_rent, floor
+        FROM real_estate_ads WHERE ad_id = ?
+      `;
+      const realEstateResult = await db.raw(realEstateQuery, [parsedAdId]);
+      existingSpecificDetails = realEstateResult[0][0] || {};
+    } else if (existingAd.ad_type === 'VEHICLE') {
+      const vehicleQuery = `
+        SELECT brand, model, mileage, color, gearbox, base_price, 
+               engine_status, chassis_status, body_status
+        FROM vehicle_ads WHERE ad_id = ?
+      `;
+      const vehicleResult = await db.raw(vehicleQuery, [parsedAdId]);
+      existingSpecificDetails = vehicleResult[0][0] || {};
+    } else if (existingAd.ad_type === 'DIGITAL') {
+      const digitalQuery = `
+        SELECT brand, model, item_condition
+        FROM digital_ads WHERE ad_id = ?
+      `;
+      const digitalResult = await db.raw(digitalQuery, [parsedAdId]);
+      existingSpecificDetails = digitalResult[0][0] || {};
+    } else if (existingAd.ad_type === 'HOME') {
+      const homeQuery = `
+        SELECT brand, model, item_condition
+        FROM home_ads WHERE ad_id = ?
+      `;
+      const homeResult = await db.raw(homeQuery, [parsedAdId]);
+      existingSpecificDetails = homeResult[0][0] || {};
+    } else if (existingAd.ad_type === 'PERSONAL') {
+      const personalQuery = `
+        SELECT brand, model, item_condition
+        FROM personal_ads WHERE ad_id = ?
+      `;
+      const personalResult = await db.raw(personalQuery, [parsedAdId]);
+      existingSpecificDetails = personalResult[0][0] || {};
+    } else if (existingAd.ad_type === 'ENTERTAINMENT') {
+      const entertainmentQuery = `
+        SELECT brand, model, item_condition
+        FROM entertainment_ads WHERE ad_id = ?
+      `;
+      const entertainmentResult = await db.raw(entertainmentQuery, [parsedAdId]);
+      existingSpecificDetails = entertainmentResult[0][0] || {};
+    } else if (existingAd.ad_type === 'SERVICES') {
+      const servicesQuery = `
+        SELECT service_type, service_duration
+        FROM services_ads WHERE ad_id = ?
+      `;
+      const servicesResult = await db.raw(servicesQuery, [parsedAdId]);
+      existingSpecificDetails = servicesResult[0][0] || {};
+    }
 
-      const parsedAdId = parseInt(ad_id);
-      const parsedPrice = parseInt(price);
-      const parsedBasePrice = ad_type === 'VEHICLE' ? parseInt(base_price) : null;
-      const parsedTotalPrice = ad_type === 'REAL_ESTATE' && real_estate_type === 'SALE' ? parseInt(total_price) : null;
-      const parsedDeposit = ad_type === 'REAL_ESTATE' && real_estate_type === 'RENT' ? parseInt(deposit) : null;
-      const parsedMonthlyRent = ad_type === 'REAL_ESTATE' && real_estate_type === 'RENT' ? parseInt(monthly_rent) : null;
-      const parsedServiceDuration = ad_type === 'SERVICES' && service_duration ? parseInt(service_duration) : null;
+    const {
+      title = existingAd.title,
+      description = existingAd.description,
+      ad_type = existingAd.ad_type,
+      price = existingAd.price,
+      province_id = existingAd.province_id,
+      city_id = existingAd.city_id,
+      owner_phone_number = existingAd.owner_phone_number,
+      real_estate_type = existingSpecificDetails.real_estate_type,
+      area = existingSpecificDetails.area,
+      construction_year = existingSpecificDetails.construction_year,
+      rooms = existingSpecificDetails.rooms,
+      total_price = existingSpecificDetails.total_price,
+      price_per_meter = existingSpecificDetails.price_per_meter,
+      has_parking = existingSpecificDetails.has_parking,
+      has_storage = existingSpecificDetails.has_storage,
+      has_balcony = existingSpecificDetails.has_balcony,
+      deposit = existingSpecificDetails.deposit,
+      monthly_rent = existingSpecificDetails.monthly_rent,
+      floor = existingSpecificDetails.floor,
+      brand = existingSpecificDetails.brand,
+      model = existingSpecificDetails.model,
+      mileage = existingSpecificDetails.mileage,
+      color = existingSpecificDetails.color,
+      gearbox = existingSpecificDetails.gearbox,
+      base_price = existingSpecificDetails.base_price,
+      engine_status = existingSpecificDetails.engine_status,
+      chassis_status = existingSpecificDetails.chassis_status,
+      body_status = existingSpecificDetails.body_status,
+      item_condition = existingSpecificDetails.item_condition,
+      service_type = existingSpecificDetails.service_type,
+      service_duration = existingSpecificDetails.service_duration,
+      existing_images = existingSpecificDetails.existingImageUrls,
+    } = req.body;
 
-      if (isNaN(parsedAdId)) {
-        return res.status(400).json({ message: 'شناسه آگهی نامعتبر است' });
-      }
-      if (isNaN(parsedPrice) || parsedPrice < 0) {
-        return res.status(400).json({ message: 'قیمت باید یک عدد معتبر و غیرمنفی باشد' });
-      }
-      if (ad_type === 'VEHICLE' && (isNaN(parsedBasePrice) || parsedBasePrice < 0)) {
-        return res.status(400).json({ message: 'قیمت پایه باید یک عدد معتبر و غیرمنفی باشد' });
-      }
-      if (ad_type === 'REAL_ESTATE' && real_estate_type === 'SALE' && (isNaN(parsedTotalPrice) || parsedTotalPrice < 0)) {
-        return res.status(400).json({ message: 'قیمت کل باید یک عدد معتبر و غیرمنفی باشد' });
-      }
-      if (ad_type === 'REAL_ESTATE' && real_estate_type === 'RENT') {
-        if (isNaN(parsedDeposit) || parsedDeposit < 0) {
-          return res.status(400).json({ message: 'ودیعه باید یک عدد معتبر و غیرمنفی باشد' });
-        }
-        if (isNaN(parsedMonthlyRent) || parsedMonthlyRent < 0) {
-          return res.status(400).json({ message: 'اجاره ماهیانه باید یک عدد معتبر و غیرمنفی باشد' });
-        }
-      }
-      if (ad_type === 'SERVICES' && service_duration && (isNaN(parsedServiceDuration) || parsedServiceDuration <= 0)) {
-        return res.status(400).json({ message: 'مدت زمان خدمت باید یک عدد معتبر باشد' });
-      }
+    // Validate fields
+    const missingFields = [];
+    if (!title || title.trim() === '') missingFields.push('title');
+    if (!description || description.trim() === '') missingFields.push('description');
+    if (!ad_type || !['REAL_ESTATE', 'VEHICLE', 'DIGITAL', 'HOME', 'SERVICES', 'PERSONAL', 'ENTERTAINMENT'].includes(ad_type)) {
+      missingFields.push('ad_type');
+    }
+    if (!price || isNaN(parseInt(price))) missingFields.push('price');
+    if (!province_id || isNaN(parseInt(province_id))) missingFields.push('province_id');
+    if (!city_id || isNaN(parseInt(city_id))) missingFields.push('city_id');
+    if (!owner_phone_number || owner_phone_number.trim() === '') missingFields.push('owner_phone_number');
 
-      await db.raw('START TRANSACTION');
-
-      // Update the advertisements table
-      const updateAdResult = await db.raw(
-        `UPDATE advertisements 
-        SET title = ?, description = ?, price = ?, ad_type = ?, owner_phone_number = ?
-        WHERE ad_id = ?`,
-        [title, description, parsedPrice, ad_type, owner_phone_number, parsedAdId]
-      );
-
-      if (updateAdResult[0].affectedRows === 0) {
-        await db.raw('ROLLBACK');
-        return res.status(404).json({ message: 'آگهی یافت نشد' });
+    if (ad_type === 'REAL_ESTATE') {
+      if (!real_estate_type || !['SALE', 'RENT'].includes(real_estate_type)) missingFields.push('real_estate_type');
+      if (!area || isNaN(parseInt(area))) missingFields.push('area');
+      if (!construction_year || isNaN(parseInt(construction_year))) missingFields.push('construction_year');
+      if (!rooms || isNaN(parseInt(rooms))) missingFields.push('rooms');
+      if (!floor || isNaN(parseInt(floor))) missingFields.push('floor');
+      if (real_estate_type === 'SALE') {
+        if (!total_price || isNaN(parseInt(total_price))) missingFields.push('total_price');
+        if (!price_per_meter || isNaN(parseInt(price_per_meter))) missingFields.push('price_per_meter');
+      } else if (real_estate_type === 'RENT') {
+        if (!deposit || isNaN(parseInt(deposit))) missingFields.push('deposit');
+        if (!monthly_rent || isNaN(parseInt(monthly_rent))) missingFields.push('monthly_rent');
       }
+    } else if (ad_type === 'VEHICLE') {
+      if (!brand || brand.trim() === '') missingFields.push('brand');
+      if (!model || model.trim() === '') missingFields.push('model');
+      if (!mileage || isNaN(parseInt(mileage))) missingFields.push('mileage');
+      if (!color || color.trim() === '') missingFields.push('color');
+      if (!gearbox || !['MANUAL', 'AUTOMATIC'].includes(gearbox)) missingFields.push('gearbox');
+      if (!base_price || isNaN(parseInt(base_price))) missingFields.push('base_price');
+      if (!engine_status || !['HEALTHY', 'NEEDS_REPAIR'].includes(engine_status)) missingFields.push('engine_status');
+      if (!chassis_status || !['HEALTHY', 'IMPACTED'].includes(chassis_status)) missingFields.push('chassis_status');
+      if (!body_status || !['HEALTHY', 'MINOR_SCRATCH', 'ACCIDENTED'].includes(body_status)) missingFields.push('body_status');
+    } else if (['DIGITAL', 'HOME', 'PERSONAL', 'ENTERTAINMENT'].includes(ad_type)) {
+      if (!brand || brand.trim() === '') missingFields.push('brand');
+      if (!model || model.trim() === '') missingFields.push('model');
+      if (!item_condition || !['NEW', 'USED'].includes(item_condition)) missingFields.push('item_condition');
+    } else if (ad_type === 'SERVICES') {
+      if (!service_type || service_type.trim() === '') missingFields.push('service_type');
+      if (service_duration && isNaN(parseInt(service_duration))) missingFields.push('service_duration');
+    }
 
-      // Update category-specific tables
-      if (ad_type === 'REAL_ESTATE') {
-        if (realEstateType === 'SALE') {
-          await db.raw(
-            `UPDATE realEstateAds 
-            SET totalPriceId = ?, deposit = NULL, monthlyRentPrice = NULL
-          WHERE adId = ?`,
-            [parsedTotalPrice, parsedAdId]
-          );
-        } else if (realEstateType === 'RENT') {
-          await db.raw(
-            `UPDATE realEstateAds 
-            SET deposit = ?, monthlyRentPrice = ?, totalPrice = NULL
-          WHERE adId = ?`,
-            [parsedDeposit, parsedMonthlyRent, parsedAdId]
-          );
-        }
-      } else if (ad_type === 'VEHICLE') {
-        await db.raw(
-          `UPDATE vehiclesAds 
-          SET basePrice = ?
-          WHERE adId = ?`,
-          [parsedBasePrice, parsedAdId]
-        );
-      } else if (ad_type === 'DIGITAL') {
-        await db.raw(
-          `UPDATE digital_ads SET brand = ?, model = ?, item_condition = ? WHERE ad_id = ?`,
-          [brand, model, item_condition, parsedAdId]
-        );
-      } else if (ad_type === 'HOME') {
-        await db.raw(
-          `UPDATE home_ads SET brand = ?, model = ?, item_condition = ? WHERE ad_id = ?`,
-          [brand, model, item_condition, parsedAdId]
-        );
-      } else if (ad_type === 'PERSONAL') {
-        await db.raw(
-          `UPDATE personal_ads SET brand = ?, model = ?, item_condition = ? WHERE ad_id = ?`,
-          [brand, model, item_condition, parsedAdId]
-        );
-      } else if (ad_type === 'ENTERTAINMENT') {
-        await db.raw(
-            `UPDATE entertainment_ads SET brand = ?, model = ?, item_condition = ? ad_id = ?`,
-            [brand, model, item_condition, parsedAdId]
-          );
-      } else if (ad_type === 'SERVICES') {
-        await db.raw(
-          `UPDATE services_ads SET service_type = ?, service_duration = ? WHERE ad_id = ?`,
-          [service_type, parsedServiceDuration, parsedAdId]
-        );
+    if (missingFields.length > 0) {
+      console.log('Validation failed:', { missingFields });
+      return res.status(400).json({
+        message: `فیلدهای الزامی پر نشده‌اند: ${missingFields.join(', ')}`,
+        missingFields,
+      });
+    }
+
+    // Parse numeric fields with safety checks
+    const parsedPrice = parseInt(price);
+    const parsedProvinceId = parseInt(province_id);
+    const parsedCityId = parseInt(city_id);
+    const parsedBasePrice = ad_type === 'VEHICLE' ? parseInt(base_price) : null;
+    const parsedTotalPrice = ad_type === 'REAL_ESTATE' && real_estate_type === 'SALE' ? parseInt(total_price) : null;
+    const parsedPricePerMeter = ad_type === 'REAL_ESTATE' && real_estate_type === 'SALE' ? parseInt(price_per_meter) : null;
+    const parsedDeposit = ad_type === 'REAL_ESTATE' && real_estate_type === 'RENT' ? parseInt(deposit) : null;
+    const parsedMonthlyRent = ad_type === 'REAL_ESTATE' && real_estate_type === 'RENT' ? parseInt(monthly_rent) : null;
+    const parsedServiceDuration = ad_type === 'SERVICES' && service_duration ? parseInt(service_duration) : null;
+    const parsedArea = ad_type === 'REAL_ESTATE' ? parseInt(area) : null;
+    const parsedConstructionYear = ad_type === 'REAL_ESTATE' ? parseInt(construction_year) : null;
+    const parsedRooms = ad_type === 'REAL_ESTATE' ? parseInt(rooms) : null;
+    const parsedFloor = ad_type === 'REAL_ESTATE' ? parseInt(floor) : null;
+    const parsedMileage = ad_type === 'VEHICLE' ? parseInt(mileage) : null;
+
+    // Validate parsed numeric fields
+    if (isNaN(parsedPrice) || parsedPrice < 0) {
+      console.log('Invalid price:', price);
+      return res.status(400).json({ message: 'قیمت باید یک عدد معتبر باشد' });
+    }
+    if (isNaN(parsedProvinceId)) {
+      console.log('Invalid province_id:', province_id);
+      return res.status(400).json({ message: 'شناسه استان باید یک عدد معتبر باشد' });
+    }
+    if (isNaN(parsedCityId)) {
+      console.log('Invalid city_id:', city_id);
+      return res.status(400).json({ message: 'شناسه شهر باید یک عدد معتبر باشد' });
+    }
+    if (ad_type === 'VEHICLE' && (isNaN(parsedBasePrice) || parsedBasePrice < 0)) {
+      console.log('Invalid base_price:', base_price);
+      return res.status(400).json({ message: 'قیمت پایه باید یک عدد معتبر باشد' });
+    }
+    if (ad_type === 'REAL_ESTATE' && real_estate_type === 'SALE') {
+      if (isNaN(parsedTotalPrice) || parsedTotalPrice < 0) {
+        console.log('Invalid total_price:', total_price);
+        return res.status(400).json({ message: 'قیمت کل باید یک عدد معتبر باشد' });
       }
+      if (isNaN(parsedPricePerMeter) || parsedPricePerMeter < 0) {
+        console.log('Invalid price_per_meter:', price_per_meter);
+        return res.status(400).json({ message: 'قیمت هر متر باید یک عدد معتبر باشد' });
+      }
+    }
+    if (ad_type === 'REAL_ESTATE' && real_estate_type === 'RENT') {
+      if (isNaN(parsedDeposit) || parsedDeposit < 0) {
+        console.log('Invalid deposit:', deposit);
+        return res.status(400).json({ message: 'ودیعه باید یک عدد معتبر باشد' });
+      }
+      if (isNaN(parsedMonthlyRent) || parsedMonthlyRent < 0) {
+        console.log('Invalid monthly_rent:', monthly_rent);
+        return res.status(400).json({ message: 'اجاره ماهانه باید یک عدد معتبر باشد' });
+      }
+    }
+    if (ad_type === 'SERVICES' && service_duration && (isNaN(parsedServiceDuration) || parsedServiceDuration <= 0)) {
+      console.log('Invalid service_duration:', service_duration);
+      return res.status(400).json({ message: 'مدت زمان خدمت باید یک عدد معتبر باشد' });
+    }
+    if (ad_type === 'REAL_ESTATE') {
+      if (isNaN(parsedArea) || parsedArea <= 0) {
+        console.log('Invalid area:', area);
+        return res.status(400).json({ message: 'مساحت باید یک عدد معتبر باشد' });
+      }
+      if (isNaN(parsedConstructionYear) || parsedConstructionYear < 0) {
+        console.log('Invalid construction_year:', construction_year);
+        return res.status(400).json({ message: 'سال ساخت باید یک عدد معتبر باشد' });
+      }
+      if (isNaN(parsedRooms) || parsedRooms < 0) {
+        console.log('Invalid rooms:', rooms);
+        return res.status(400).json({ message: 'تعداد اتاق‌ها باید یک عدد معتبر باشد' });
+      }
+      if (isNaN(parsedFloor) || parsedFloor < 0) {
+        console.log('Invalid floor:', floor);
+        return res.status(400).json({ message: 'طبقه باید یک عدد معتبر باشد' });
+      }
+    }
+    if (ad_type === 'VEHICLE' && (isNaN(parsedMileage) || parsedMileage < 0)) {
+      console.log('Invalid mileage:', mileage);
+      return res.status(400).json({ message: 'کیلومتر باید یک عدد معتبر باشد' });
+    }
 
-      await db.raw('COMMIT');
-      res.json({ message: 'آگهی با موفقیت ویرایش شد' });
-    } catch (error) {
+    // Validate foreign keys
+    const provinceCheck = await db.raw('SELECT 1 FROM provinces WHERE province_id = ?', [parsedProvinceId]);
+    if (provinceCheck[0].length === 0) {
+      console.log('Province not found:', parsedProvinceId);
+      return res.status(400).json({ message: 'استان با شناسه مشخص‌شده یافت نشد' });
+    }
+    const cityCheck = await db.raw('SELECT 1 FROM cities WHERE city_id = ?', [parsedCityId]);
+    if (cityCheck[0].length === 0) {
+      console.log('City not found:', parsedCityId);
+      return res.status(400).json({ message: 'شهر با شناسه مشخص‌شده یافت نشد' });
+    }
+
+    // Handle boolean fields
+    const boolToInt = (value) => (value === true || value === 'true' ? 1 : 0);
+    const parsedHasParking = ad_type === 'REAL_ESTATE' ? boolToInt(has_parking) : null;
+    const parsedHasStorage = ad_type === 'REAL_ESTATE' ? boolToInt(has_storage) : null;
+    const parsedHasBalcony = ad_type === 'REAL_ESTATE' ? boolToInt(has_balcony) : null;
+
+    await db.raw('START TRANSACTION');
+    console.log('Started transaction for ad_id:', parsedAdId);
+
+    // Update advertisements table
+    const updateAdResult = await db.raw(
+      `UPDATE advertisements 
+       SET title = ?, description = ?, ad_type = ?, price = ?, province_id = ?, city_id = ?, owner_phone_number = ?
+       WHERE ad_id = ?`,
+      [title, description, ad_type, parsedPrice, parsedProvinceId, parsedCityId, owner_phone_number, parsedAdId]
+    );
+    console.log('Advertisements update:', { affectedRows: updateAdResult[0].affectedRows });
+
+    if (updateAdResult[0].affectedRows === 0) {
       await db.raw('ROLLBACK');
-      console.error('Error updating ad:', error);
-      res.status(500).json({ message: `خطا در ویرایش آگهی: ${error.message}` });
+      console.log(`No rows updated in advertisements: ad_id=${parsedAdId}`);
+      return res.status(404).json({ message: 'آگهی یافت نشد یا هیچ تغییری اعمال نشد' });
+    }
+
+    // Update category-specific tables
+    if (ad_type === 'REAL_ESTATE') {
+      const realEstateCheck = await db.raw('SELECT 1 FROM real_estate_ads WHERE ad_id = ?', [parsedAdId]);
+      if (realEstateCheck[0].length === 0) {
+        await db.raw('ROLLBACK');
+        console.log(`Real estate ad not found: ad_id=${parsedAdId}`);
+        return res.status(404).json({ message: 'آگهی املاک یافت نشد' });
+      }
+
+      const realEstateUpdateResult = await db.raw(
+        `UPDATE real_estate_ads 
+         SET real_estate_type = ?, area = ?, construction_year = ?, rooms = ?, 
+             total_price = ?, price_per_meter = ?, has_parking = ?, has_storage = ?, 
+             has_balcony = ?, deposit = ?, monthly_rent = ?, floor = ?
+         WHERE ad_id = ?`,
+        [
+          real_estate_type,
+          parsedArea,
+          parsedConstructionYear,
+          parsedRooms,
+          real_estate_type === 'SALE' ? parsedTotalPrice : 0,
+          real_estate_type === 'SALE' ? parsedPricePerMeter : null,
+          parsedHasParking,
+          parsedHasStorage,
+          parsedHasBalcony,
+          real_estate_type === 'RENT' ? parsedDeposit : null,
+          real_estate_type === 'RENT' ? parsedMonthlyRent : null,
+          parsedFloor,
+          parsedAdId,
+        ]
+      );
+      console.log('Real estate update:', { affectedRows: realEstateUpdateResult[0].affectedRows });
+    } else if (ad_type === 'VEHICLE') {
+      const vehicleCheck = await db.raw('SELECT 1 FROM vehicle_ads WHERE ad_id = ?', [parsedAdId]);
+      if (vehicleCheck[0].length === 0) {
+        await db.raw('ROLLBACK');
+        console.log(`Vehicle ad not found: ad_id=${parsedAdId}`);
+        return res.status(404).json({ message: 'آگهی خودرو یافت نشد' });
+      }
+
+      const vehicleUpdateResult = await db.raw(
+        `UPDATE vehicle_ads 
+         SET brand = ?, model = ?, mileage = ?, color = ?, gearbox = ?, 
+             base_price = ?, engine_status = ?, chassis_status = ?, body_status = ?
+         WHERE ad_id = ?`,
+        [
+          brand,
+          model,
+          parsedMileage,
+          color,
+          gearbox,
+          parsedBasePrice,
+          engine_status,
+          chassis_status,
+          body_status,
+          parsedAdId,
+        ]
+      );
+      console.log('Vehicle update:', { affectedRows: vehicleUpdateResult[0].affectedRows });
+    } else if (ad_type === 'DIGITAL') {
+      const digitalCheck = await db.raw('SELECT 1 FROM digital_ads WHERE ad_id = ?', [parsedAdId]);
+      if (digitalCheck[0].length === 0) {
+        await db.raw('ROLLBACK');
+        console.log(`Digital ad not found: ad_id=${parsedAdId}`);
+        return res.status(404).json({ message: 'آگهی دیجیتال یافت نشد' });
+      }
+
+      const digitalUpdateResult = await db.raw(
+        `UPDATE digital_ads 
+         SET brand = ?, model = ?, item_condition = ?
+         WHERE ad_id = ?`,
+        [brand, model, item_condition, parsedAdId]
+      );
+      console.log('Digital update:', { affectedRows: digitalUpdateResult[0].affectedRows });
+    } else if (ad_type === 'HOME') {
+      const homeCheck = await db.raw('SELECT 1 FROM home_ads WHERE ad_id = ?', [parsedAdId]);
+      if (homeCheck[0].length === 0) {
+        await db.raw('ROLLBACK');
+        console.log(`Home ad not found: ad_id=${parsedAdId}`);
+        return res.status(404).json({ message: 'آگهی خانگی یافت نشد' });
+      }
+
+      const homeUpdateResult = await db.raw(
+        `UPDATE home_ads 
+         SET brand = ?, model = ?, item_condition = ?
+         WHERE ad_id = ?`,
+        [brand, model, item_condition, parsedAdId]
+      );
+      console.log('Home update:', { affectedRows: homeUpdateResult[0].affectedRows });
+    } else if (ad_type === 'PERSONAL') {
+      const personalCheck = await db.raw('SELECT 1 FROM personal_ads WHERE ad_id = ?', [parsedAdId]);
+      if (personalCheck[0].length === 0) {
+        await db.raw('ROLLBACK');
+        console.log(`Personal ad not found: ad_id=${parsedAdId}`);
+        return res.status(404).json({ message: 'آگهی شخصی یافت نشد' });
+      }
+
+      const personalUpdateResult = await db.raw(
+        `UPDATE personal_ads 
+         SET brand = ?, model = ?, item_condition = ?
+         WHERE ad_id = ?`,
+        [brand, model, item_condition, parsedAdId]
+      );
+      console.log('Personal update:', { affectedRows: personalUpdateResult[0].affectedRows });
+    } else if (ad_type === 'ENTERTAINMENT') {
+      const entertainmentCheck = await db.raw('SELECT 1 FROM entertainment_ads WHERE ad_id = ?', [parsedAdId]);
+      if (entertainmentCheck[0].length === 0) {
+        await db.raw('ROLLBACK');
+        console.log(`Entertainment ad not found: ad_id=${parsedAdId}`);
+        return res.status(404).json({ message: 'آگهی سرگرمی یافت نشد' });
+      }
+
+      const entertainmentUpdateResult = await db.raw(
+        `UPDATE entertainment_ads 
+         SET brand = ?, model = ?, item_condition = ?
+         WHERE ad_id = ?`,
+        [brand, model, item_condition, parsedAdId]
+      );
+      console.log('Entertainment update:', { affectedRows: entertainmentUpdateResult[0].affectedRows });
+    } else if (ad_type === 'SERVICES') {
+      const servicesCheck = await db.raw('SELECT 1 FROM services_ads WHERE ad_id = ?', [parsedAdId]);
+      if (servicesCheck[0].length === 0) {
+        await db.raw('ROLLBACK');
+        console.log(`Services ad not found: ad_id=${parsedAdId}`);
+        return res.status(404).json({ message: 'آگهی خدمات یافت نشد' });
+      }
+
+      const servicesUpdateResult = await db.raw(
+        `UPDATE services_ads 
+         SET service_type = ?, service_duration = ?
+         WHERE ad_id = ?`,
+        [service_type, parsedServiceDuration, parsedAdId]
+      );
+      console.log('Services update:', { affectedRows: servicesUpdateResult[0].affectedRows });
+    }
+
+    // Handle images
+    if (existing_images || (req.files && req.files.images && req.files.images.length > 0)) {
+      console.log('Deleting existing images for ad_id:', parsedAdId);
+      const deleteImagesResult = await db.raw(`DELETE FROM ad_images WHERE ad_id = ?`, [parsedAdId]);
+      console.log('Images deleted:', { affectedRows: deleteImagesResult[0].affectedRows });
+
+      const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+
+      if (existing_images) {
+        let existingImageUrls;
+        try {
+          console.log('Parsing existing_images:', existing_images);
+          existingImageUrls = JSON.parse(existing_images);
+          console.log('Parsed existing_images:', existingImageUrls);
+          if (!Array.isArray(existingImageUrls)) {
+            throw new Error('existing_images must be an array');
+          }
+          for (const imageUrl of existingImageUrls) {
+            if (!imageUrl || (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://'))) {
+              throw new Error(`Invalid image URL: ${imageUrl}`);
+            }
+            console.log('Inserting existing image:', imageUrl);
+            await db.raw(`INSERT INTO ad_images (ad_id, image_url) VALUES (?, ?)`, [parsedAdId, imageUrl]);
+          }
+        } catch (e) {
+          console.error('Error parsing or inserting existing_images:', { error: e.message, input: existing_images });
+          await db.raw('ROLLBACK');
+          return res.status(400).json({ message: `فرمت existing_images نامعتبر است: ${e.message}` });
+        }
+      }
+
+      if (req.files && req.files.images && req.files.images.length > 0) {
+        const newImageUrls = req.files.images.map(file => `${baseUrl}/uploads/${file.filename}`);
+        console.log('Inserting new images:', newImageUrls);
+        for (const imageUrl of newImageUrls) {
+          await db.raw(`INSERT INTO ad_images (ad_id, image_url) VALUES (?, ?)`, [parsedAdId, imageUrl]);
+        }
+      }
+    }
+
+    console.log('Committing transaction for ad_id:', parsedAdId);
+    await db.raw('COMMIT');
+    console.log('Transaction committed successfully for ad_id:', parsedAdId);
+    res.status(200).json({ message: 'آگهی با موفقیت ویرایش شد' });
+  } catch (error) {
+    await db.raw('ROLLBACK');
+    console.error('Error updating ad:', {
+      message: error.message,
+      stack: error.stack,
+      ad_id: parsedAdId || req.params.ad_id,
+      body: req.body,
+      files: req.files ? req.files.images : undefined,
+    });
+    res.status(500).json({ message: `خطا در ویرایش آگهی: ${error.message}` });
   }
 }
-
-
-
-
 // Delete an ad
 async function deleteAd(req, res) {
   try {

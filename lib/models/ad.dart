@@ -1,5 +1,5 @@
 class Ad {
-  int? bookmarkId; // Single, settable field
+  int? bookmarkId;
   final int adId;
   final String title;
   final String description;
@@ -39,6 +39,13 @@ class Ad {
   final String? chassisStatus;
   final String? bodyStatus;
 
+  // DIGITAL, HOME, PERSONAL, ENTERTAINMENT fields
+  final String? itemCondition;
+
+  // SERVICES fields
+  final String? serviceType;
+  final int? serviceDuration;
+
   Ad({
     this.bookmarkId,
     required this.adId,
@@ -75,12 +82,15 @@ class Ad {
     this.engineStatus,
     this.chassisStatus,
     this.bodyStatus,
+    this.itemCondition,
+    this.serviceType,
+    this.serviceDuration,
   });
 
   factory Ad.fromJson(Map<String, dynamic> json) {
     return Ad(
       bookmarkId: json['bookmark_id'] as int?,
-      adId: json['ad_id'] as int? ?? 0, // Default to 0 if null
+      adId: json['ad_id'] as int? ?? 0,
       title: json['title'] as String? ?? 'بدون عنوان',
       description: json['description'] as String? ?? '',
       adType: json['ad_type'] as String? ?? 'UNKNOWN',
@@ -115,6 +125,9 @@ class Ad {
       engineStatus: json['engine_status'] as String?,
       chassisStatus: json['chassis_status'] as String?,
       bodyStatus: json['body_status'] as String?,
+      itemCondition: json['item_condition'] as String?,
+      serviceType: json['service_type'] as String?,
+      serviceDuration: json['service_duration'] as int?,
     );
   }
 
@@ -133,7 +146,7 @@ class Ad {
       'status': status,
       'province_name': provinceName,
       'city_name': cityName,
-      'images': imageUrls,
+      'imageUrls': imageUrls,
       'real_estate_type': realEstateType,
       'area': area,
       'construction_year': constructionYear,
@@ -155,6 +168,9 @@ class Ad {
       'engine_status': engineStatus,
       'chassis_status': chassisStatus,
       'body_status': bodyStatus,
+      'item_condition': itemCondition,
+      'service_type': serviceType,
+      'service_duration': serviceDuration,
     };
   }
 }

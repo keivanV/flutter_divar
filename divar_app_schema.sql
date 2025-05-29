@@ -507,6 +507,19 @@ CREATE TABLE `vehicle_ads` (
 
 --
 -- Dumping data for table `vehicle_ads`
+
+
+
+CREATE TABLE promo_ads (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  ad_type VARCHAR(50) NOT NULL,
+  price VARCHAR(100) NOT NULL,
+  details TEXT NOT NULL,
+  image_url VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_persian_ci;
 --
 
 LOCK TABLES `vehicle_ads` WRITE;

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models/ad.dart';
 import '../providers/ad_provider.dart';
 import 'package:intl/intl.dart';
+import 'package:persian_number_utility/persian_number_utility.dart';
 
 class EditAdScreen extends StatefulWidget {
   final Ad ad;
@@ -35,6 +36,11 @@ class _EditAdScreenState extends State<EditAdScreen>
   late TextEditingController _basePriceController;
   late TextEditingController _serviceTypeController;
   late TextEditingController _serviceDurationController;
+
+  String _priceWords = '';
+  String _depositWords = '';
+  String _monthlyRentWords = '';
+  String _basePriceWords = '';
 
   String? _category;
   String? _realEstateType;
@@ -186,7 +192,20 @@ class _EditAdScreenState extends State<EditAdScreen>
       _basePriceController
     ]) {
       final text = controller.text.replaceAll(',', '');
-      if (text.isEmpty) continue;
+      if (text.isEmpty) {
+        setState(() {
+          if (controller == _priceController) {
+            _priceWords = '';
+          } else if (controller == _depositController) {
+            _depositWords = '';
+          } else if (controller == _monthlyRentController) {
+            _monthlyRentWords = '';
+          } else if (controller == _basePriceController) {
+            _basePriceWords = '';
+          }
+        });
+        continue;
+      }
 
       final number = int.tryParse(text);
       if (number == null || number < 0) continue;
@@ -198,6 +217,19 @@ class _EditAdScreenState extends State<EditAdScreen>
           ..text = formatted
           ..selection = TextSelection.collapsed(offset: formatted.length);
       }
+
+      // Update words for each controller using persian_number_utility
+      setState(() {
+        if (controller == _priceController) {
+          _priceWords = NumberUtility.toWord(text, NumStrLanguage.Farsi);
+        } else if (controller == _depositController) {
+          _depositWords = NumberUtility.toWord(text, NumStrLanguage.Farsi);
+        } else if (controller == _monthlyRentController) {
+          _monthlyRentWords = NumberUtility.toWord(text, NumStrLanguage.Farsi);
+        } else if (controller == _basePriceController) {
+          _basePriceWords = NumberUtility.toWord(text, NumStrLanguage.Farsi);
+        }
+      });
     }
   }
 
@@ -546,38 +578,66 @@ class _EditAdScreenState extends State<EditAdScreen>
     TextInputType? keyboardType,
     String? Function(String?)? validator,
   }) {
-    return TextFormField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(fontFamily: 'Vazir'),
-        prefixIcon: Icon(icon, color: Colors.red),
-        filled: true,
-        fillColor: Colors.grey[50],
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red, width: 1),
+    String words = '';
+    if (controller == _priceController) {
+      words = _priceWords;
+    } else if (controller == _depositController) {
+      words = _depositWords;
+    } else if (controller == _monthlyRentController) {
+      words = _monthlyRentWords;
+    } else if (controller == _basePriceController) {
+      words = _basePriceWords;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          controller: controller,
+          decoration: InputDecoration(
+            labelText: label,
+            labelStyle: const TextStyle(fontFamily: 'Vazir'),
+            prefixIcon: Icon(icon, color: Colors.red),
+            filled: true,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red, width: 1),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+                  BorderSide(color: Colors.red.withOpacity(0.5), width: 1),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.redAccent, width: 1),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+            ),
+          ),
+          maxLines: maxLines,
+          keyboardType: keyboardType,
+          validator: validator,
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.red.withOpacity(0.5), width: 1),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red, width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.redAccent, width: 1),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.redAccent, width: 2),
-        ),
-      ),
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      validator: validator,
+        if (words.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0, right: 12),
+            child: Text(
+              '($words تومان)',
+              style: TextStyle(
+                fontFamily: 'Vazir',
+                color: Colors.grey[600],
+                fontSize: 12,
+              ),
+            ),
+          ),
+      ],
     );
   }
 

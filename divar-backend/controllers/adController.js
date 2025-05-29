@@ -587,17 +587,16 @@ async function createAd(req, res) {
 
 async function searchAds(req, res) {
   try {
-    const { query } = req.query;
-    console.log('Received query:', query);
-    console.log('Query hex:', Buffer.from(query, 'utf8').toString('hex'));
+    const { query, isSuggestion } = req.query;
+    console.log('Search request received:', { query, isSuggestion });
+
     if (!query || query.trim() === '') {
-      console.log('Empty or invalid query received');
+      console.log('Invalid search query: empty or not provided');
       return res.status(400).json({ message: 'عبارت جستجو الزامی است' });
     }
 
-    const searchQuery = `%${query.trim()}%`;
-    console.log('Processed search query:', searchQuery);
-    console.log('Search query hex:', Buffer.from(searchQuery, 'utf8').toString('hex'));
+    const searchTerm = `%${query.trim()}%`;
+    const limit = isSuggestion === 'true' ? 5 : 10; // Limit suggestions to 5, full search to 10
 
     await db.raw('SET NAMES utf8mb4');
     const adsResult = await db.raw(
@@ -606,29 +605,24 @@ async function searchAds(req, res) {
         a.ad_id, a.title, a.description, a.ad_type, a.price, 
         a.province_id, a.city_id, a.owner_phone_number, a.created_at, a.status,
         p.name AS province_name, c.name AS city_name,
-        HEX(a.title) AS title_hex,
-        HEX(a.description) AS description_hex
+        GROUP_CONCAT(ai.image_url) AS image_urls
       FROM advertisements a
       LEFT JOIN provinces p ON a.province_id = p.province_id
       LEFT JOIN cities c ON a.city_id = c.city_id
-      WHERE a.title LIKE ? OR a.description LIKE ?
+      LEFT JOIN ad_images ai ON a.ad_id = ai.ad_id
+      WHERE a.title LIKE ? OR a.description LIKE ? OR a.ad_type LIKE ?
+      GROUP BY a.ad_id
       ORDER BY a.created_at DESC
+      LIMIT ?
       `,
-      [searchQuery, searchQuery]
+      [searchTerm, searchTerm, searchTerm, limit]
     );
+
     const ads = adsResult[0];
     console.log('Ads found:', ads.length);
-    console.log('Ads data:', ads);
 
     const result = await Promise.all(
       ads.map(async (ad) => {
-        const imagesResult = await db.raw(
-          'SELECT image_url FROM ad_images WHERE ad_id = ?',
-          [ad.ad_id]
-        );
-        const imageUrls = imagesResult[0].map((img) => img.image_url).filter((url) => url != null);
-        console.log(`Images for ad ${ad.ad_id}:`, imageUrls);
-
         let specificDetails = {};
         if (ad.ad_type === 'REAL_ESTATE') {
           const realEstateResult = await db.raw(
@@ -657,24 +651,40 @@ async function searchAds(req, res) {
             [ad.ad_id]
           );
           specificDetails = vehicleResult[0][0] || {};
+        } else if (['DIGITAL', 'HOME', 'PERSONAL', 'ENTERTAINMENT'].includes(ad.ad_type)) {
+          const tableName = {
+            DIGITAL: 'digital_ads',
+            HOME: 'home_ads',
+            PERSONAL: 'personal_ads',
+            ENTERTAINMENT: 'entertainment_ads',
+          }[ad.ad_type];
+          const categoryResult = await db.raw(
+            `SELECT brand, model, item_condition FROM ${tableName} WHERE ad_id = ?`,
+            [ad.ad_id]
+          );
+          specificDetails = categoryResult[0][0] || {};
+        } else if (ad.ad_type === 'SERVICES') {
+          const servicesResult = await db.raw(
+            `SELECT service_type, service_duration FROM services_ads WHERE ad_id = ?`,
+            [ad.ad_id]
+          );
+          specificDetails = servicesResult[0][0] || {};
         }
 
         return {
-          ad_id: ad.ad_id,
+          adId: ad.ad_id, // Corrected from adId
           title: ad.title,
           description: ad.description,
-          ad_type: ad.ad_type,
+          adType: ad.ad_type,
           price: ad.price,
-          province_id: ad.province_id,
-          city_id: ad.city_id,
-          owner_phone_number: ad.owner_phone_number,
-          created_at: ad.created_at,
+          provinceId: ad.province_id,
+          cityId: ad.city_id,
+          ownerPhoneNumber: ad.owner_phone_number,
+          createdAt: ad.created_at,
           status: ad.status,
-          province_name: ad.province_name,
-          city_name: ad.city_name,
-          images: imageUrls,
-          title_hex: ad.title_hex,
-          description_hex: ad.description_hex,
+          provinceName: ad.province_name,
+          cityName: ad.city_name,
+          imageUrls: ad.image_urls ? ad.image_urls.split(',').filter(url => url) : [],
           ...specificDetails,
         };
       })
@@ -684,7 +694,12 @@ async function searchAds(req, res) {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.status(200).json(result);
   } catch (error) {
-    console.error('Error searching ads:', error);
+    console.error('Error searching ads:', {
+      error: error.message,
+      stack: error.stack,
+      query,
+      isSuggestion,
+    });
     res.status(500).json({ message: `خطا در جستجوی آگهی‌ها: ${error.message}` });
   }
 }

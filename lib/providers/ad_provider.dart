@@ -401,30 +401,39 @@ class AdProvider with ChangeNotifier {
     }
   }
 
-  Future<void> searchAds(String query) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-
+  Future<void> searchAds(String query, {bool isSuggestion = false}) async {
     try {
-      print('Searching ads with query: $query');
-      final ads = await _apiService.searchAds(query);
-      print('Fetched ${ads.length} ads for query: $query');
-      _searchResults = ads;
-    } catch (e, stackTrace) {
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      print('Error searching ads: $_errorMessage');
-      print('Stack trace: $stackTrace');
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+
+      final url = Uri.parse(
+          '$apiBaseUrl/ads/search?query=${Uri.encodeComponent(query)}&isSuggestion=$isSuggestion');
+      print('Sending search request to: $url');
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        _searchResults = data.map((json) => Ad.fromJson(json)).toList();
+        print('Search results: ${_searchResults.length} ads found');
+      } else {
+        _errorMessage = 'خطا در جستجو: ${response.statusCode}';
+        print(
+            'Search error: Status=${response.statusCode}, Body=${response.body}');
+      }
+    } catch (e) {
+      print('Error searching ads: $e');
+      _errorMessage = 'خطا در ارتباط با سرور';
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
+  // Clear search results
   void clearSearchResults() {
     _searchResults = [];
     _errorMessage = null;
-    print('Search results cleared');
     notifyListeners();
   }
 

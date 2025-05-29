@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/ad_provider.dart';
@@ -14,25 +15,55 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
+  bool _showSuggestions = false;
 
   @override
   void initState() {
     super.initState();
-    // Initialize search bar with initialQuery and trigger search
     if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
       _searchController.text = widget.initialQuery!;
       print('SearchScreen initialized with query: ${widget.initialQuery}');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Provider.of<AdProvider>(context, listen: false)
-            .searchAds(widget.initialQuery!);
+            .searchAds(widget.initialQuery!, isSuggestion: false);
       });
     }
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      if (query.isNotEmpty) {
+        print('Searching for: $query');
+        Provider.of<AdProvider>(context, listen: false)
+            .searchAds(query, isSuggestion: true);
+        setState(() {
+          _showSuggestions = true;
+        });
+      } else {
+        setState(() {
+          _showSuggestions = false;
+        });
+        Provider.of<AdProvider>(context, listen: false).clearSearchResults();
+      }
+    });
+  }
+
+  void _selectSuggestion(Ad ad) {
+    setState(() {
+      _searchController.text = ad.title;
+      _showSuggestions = false;
+    });
+    Provider.of<AdProvider>(context, listen: false)
+        .searchAds(ad.title, isSuggestion: false);
   }
 
   @override
@@ -47,26 +78,101 @@ class _SearchScreenState extends State<SearchScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'جستجو در آگهی‌ها...',
-                hintStyle: const TextStyle(fontFamily: 'Vazir'),
-                prefixIcon: const Icon(Icons.search, color: Colors.red),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: Stack(
+              children: [
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'جستجو در آگهی‌ها...',
+                    hintStyle: const TextStyle(fontFamily: 'Vazir'),
+                    prefixIcon: const Icon(Icons.search, color: Colors.red),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                  ),
+                  textDirection: TextDirection.rtl,
+                  onChanged: _onSearchChanged,
+                  onSubmitted: (query) {
+                    if (query.isNotEmpty) {
+                      print('Submitted search: $query');
+                      Provider.of<AdProvider>(context, listen: false)
+                          .searchAds(query, isSuggestion: false);
+                      setState(() {
+                        _showSuggestions = false;
+                      });
+                    }
+                  },
                 ),
-                filled: true,
-                fillColor: Colors.grey[100],
-              ),
-              textDirection: TextDirection.rtl,
-              onSubmitted: (query) {
-                if (query.isNotEmpty) {
-                  print('Searching for: $query');
-                  Provider.of<AdProvider>(context, listen: false)
-                      .searchAds(query);
-                }
-              },
+                if (_showSuggestions)
+                  Positioned(
+                    top: 60,
+                    right: 0,
+                    left: 0,
+                    child: Material(
+                      elevation: 4,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        constraints: const BoxConstraints(maxHeight: 200),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Consumer<AdProvider>(
+                          builder: (context, adProvider, child) {
+                            if (adProvider.isLoading) {
+                              return const Center(
+                                  child: CircularProgressIndicator());
+                            }
+                            if (adProvider.searchResults.isEmpty) {
+                              return const Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: Directionality(
+                                  textDirection: TextDirection
+                                      .rtl, // Set RTL for Persian/Arabic
+                                  child: Text(
+                                    'نتیجه‌ای یافت نشد',
+                                    style: TextStyle(fontFamily: 'Vazir'),
+                                  ),
+                                ),
+                              );
+                            }
+                            return ListView.builder(
+                              shrinkWrap: true,
+                              itemCount:
+                                  adProvider.searchResults.length.clamp(0, 5),
+                              itemBuilder: (context, index) {
+                                final ad = adProvider.searchResults[index];
+                                return Directionality(
+                                  textDirection: TextDirection
+                                      .rtl, // Sets RTL for all child Text widgets
+                                  child: ListTile(
+                                    title: Text(
+                                      ad.title,
+                                      style:
+                                          const TextStyle(fontFamily: 'Vazir'),
+                                    ),
+                                    subtitle: Text(
+                                      ad.adType == 'REAL_ESTATE'
+                                          ? 'املاک'
+                                          : ad.adType == 'VEHICLE'
+                                              ? 'خودرو'
+                                              : 'سایر',
+                                      style:
+                                          const TextStyle(fontFamily: 'Vazir'),
+                                    ),
+                                    onTap: () => _selectSuggestion(ad),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
           Expanded(
@@ -74,7 +180,7 @@ class _SearchScreenState extends State<SearchScreen> {
               builder: (context, adProvider, child) {
                 print(
                     'SearchScreen Consumer rebuilt: searchResults=${adProvider.searchResults.length}');
-                if (adProvider.isLoading) {
+                if (adProvider.isLoading && !_showSuggestions) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (adProvider.errorMessage != null) {
@@ -91,7 +197,8 @@ class _SearchScreenState extends State<SearchScreen> {
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: () {
-                            adProvider.searchAds(_searchController.text);
+                            adProvider.searchAds(_searchController.text,
+                                isSuggestion: false);
                           },
                           style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.red),
@@ -103,7 +210,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     ),
                   );
                 }
-                if (adProvider.searchResults.isEmpty) {
+                if (adProvider.searchResults.isEmpty && !_showSuggestions) {
                   return const Center(
                     child: Text(
                       'نتیجه‌ای یافت نشد',
@@ -117,7 +224,6 @@ class _SearchScreenState extends State<SearchScreen> {
                   itemCount: adProvider.searchResults.length,
                   itemBuilder: (context, index) {
                     final ad = adProvider.searchResults[index];
-                    // Determine price to display
                     String priceText;
                     if (ad.adType == 'REAL_ESTATE' && ad.totalPrice != null) {
                       priceText = 'قیمت: ${ad.totalPrice} تومان';
@@ -128,7 +234,6 @@ class _SearchScreenState extends State<SearchScreen> {
                     } else {
                       priceText = 'قیمت: توافقی';
                     }
-                    // Determine specific details
                     String detailsText = '';
                     if (ad.adType == 'REAL_ESTATE' && ad.area != null) {
                       detailsText = 'متراژ: ${ad.area} متر';
@@ -144,7 +249,6 @@ class _SearchScreenState extends State<SearchScreen> {
                         detailsText += ' | کارکرد: ${ad.mileage} کیلومتر';
                       }
                     }
-                    // Location
                     final locationText =
                         (ad.provinceName != null && ad.cityName != null)
                             ? 'مکان: ${ad.provinceName}، ${ad.cityName}'
@@ -164,7 +268,6 @@ class _SearchScreenState extends State<SearchScreen> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Image or Placeholder
                             Container(
                               width: 120,
                               height: 120,

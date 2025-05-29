@@ -15,6 +15,16 @@ class MyAdsScreen extends StatefulWidget {
 }
 
 class _MyAdsScreenState extends State<MyAdsScreen> {
+  final Map<String, String> _categoryNames = {
+    'REAL_ESTATE': 'املاک',
+    'VEHICLE': 'وسایل نقلیه',
+    'DIGITAL': 'لوازم الکترونیکی',
+    'HOME': 'لوازم خانگی',
+    'SERVICES': 'خدمات',
+    'PERSONAL': 'وسایل شخصی',
+    'ENTERTAINMENT': 'سرگرمی و فراغت',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -29,7 +39,7 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('آگهی‌های من'),
+        title: const Text('آگهی‌های من', style: TextStyle(fontFamily: 'Vazir')),
         centerTitle: true,
         actions: [
           IconButton(
@@ -42,7 +52,7 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
           ),
         ],
         elevation: 0,
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: Colors.red,
       ),
       body: Consumer<AdProvider>(
         builder: (context, adProvider, child) {
@@ -104,16 +114,21 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
         children: [
           const Icon(Icons.error_outline, size: 64, color: Colors.red),
           const SizedBox(height: 16),
-          Text('خطا: ${adProvider.errorMessage}',
-              style: const TextStyle(fontSize: 16, fontFamily: 'Vazir')),
+          Text(
+            'خطا: ${adProvider.errorMessage}',
+            style: const TextStyle(fontSize: 16, fontFamily: 'Vazir'),
+            textDirection: TextDirection.rtl,
+          ),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: () {
               adProvider.fetchUserAds(widget.phoneNumber);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child:
-                const Text('تلاش مجدد', style: TextStyle(fontFamily: 'Vazir')),
+            child: const Text(
+              'تلاش مجدد',
+              style: TextStyle(fontFamily: 'Vazir', color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -130,13 +145,21 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
           const Text(
             'هیچ آگهی یافت نشد',
             style: TextStyle(
-                fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Vazir'),
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Vazir',
+            ),
+            textDirection: TextDirection.rtl,
           ),
           const SizedBox(height: 8),
           const Text(
             'آگهی جدیدی اضافه کنید!',
             style: TextStyle(
-                fontSize: 14, color: Colors.grey, fontFamily: 'Vazir'),
+              fontSize: 14,
+              color: Colors.grey,
+              fontFamily: 'Vazir',
+            ),
+            textDirection: TextDirection.rtl,
           ),
         ],
       ),
@@ -182,7 +205,9 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                               errorWidget: (context, url, error) => Icon(
                                 ad.adType == 'REAL_ESTATE'
                                     ? Icons.home
-                                    : Icons.directions_car,
+                                    : ad.adType == 'VEHICLE'
+                                        ? Icons.directions_car
+                                        : Icons.category,
                                 size: 50,
                                 color: Colors.grey,
                               ),
@@ -191,7 +216,9 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                         : Icon(
                             ad.adType == 'REAL_ESTATE'
                                 ? Icons.home
-                                : Icons.directions_car,
+                                : ad.adType == 'VEHICLE'
+                                    ? Icons.directions_car
+                                    : Icons.category,
                             size: 50,
                             color: Colors.grey,
                           ),
@@ -220,7 +247,7 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                         const SizedBox(height: 2),
                         // Ad Type
                         Text(
-                          'نوع: ${ad.adType == 'REAL_ESTATE' ? 'املاک' : ad.adType == 'VEHICLE' ? 'خودرو' : 'سایر'}',
+                          'نوع: ${_categoryNames[ad.adType] ?? 'نامشخص'}',
                           style: const TextStyle(
                             fontSize: 10,
                             fontFamily: 'Vazir',
@@ -323,6 +350,7 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
                                           'آگهی "${ad.title}" با موفقیت حذف شد',
                                           style: const TextStyle(
                                               fontFamily: 'Vazir'),
+                                          textDirection: TextDirection.rtl,
                                         ),
                                         backgroundColor: Colors.green,
                                       ),
@@ -349,35 +377,79 @@ class _MyAdsScreenState extends State<MyAdsScreen> {
     if (ad.adType == 'REAL_ESTATE') {
       if (ad.realEstateType == 'RENT') {
         final depositText = ad.deposit != null ? '${ad.deposit}' : 'توافقی';
-        final rentText = ad.monthlyRent != null ? '${ad.monthlyRent}' : 'توافقی';
+        final rentText =
+            ad.monthlyRent != null ? '${ad.monthlyRent}' : 'توافقی';
         return 'ودیعه: $depositText تومان | اجاره: $rentText تومان';
       } else if (ad.realEstateType == 'SALE' && ad.totalPrice != null) {
         return 'قیمت کل: ${ad.totalPrice} تومان';
       }
       return 'قیمت: توافقی';
-    } else if (ad.adType == 'VEHICLE' && ad.price != null) {
-      return 'قیمت: ${ad.price} تومان';
-    } else if (ad.price != null) {
+    } else if (ad.adType == 'VEHICLE' && ad.basePrice != null) {
+      return 'قیمت: ${ad.basePrice} تومان';
+    } else if (['DIGITAL', 'HOME', 'PERSONAL', 'ENTERTAINMENT', 'SERVICES']
+            .contains(ad.adType) &&
+        ad.price != null) {
       return 'قیمت: ${ad.price} تومان';
     }
     return 'قیمت: توافقی';
   }
 
   String _getDetailsText(Ad ad) {
-    if (ad.adType == 'REAL_ESTATE' && ad.area != null) {
-      String details = 'متراژ: ${ad.area} متر';
+    if (ad.adType == 'REAL_ESTATE') {
+      String details = '';
+      if (ad.area != null) {
+        details += 'متراژ: ${ad.area} متر';
+      }
       if (ad.realEstateType != null) {
-        details += ' | نوع: ${ad.realEstateType == 'SALE' ? 'فروش' : 'اجاره'}';
+        details += details.isNotEmpty ? ' | ' : '';
+        details += 'نوع: ${ad.realEstateType == 'SALE' ? 'فروش' : 'اجاره'}';
       }
-      return details;
-    } else if (ad.adType == 'VEHICLE' && ad.brand != null && ad.model != null) {
-      String details = 'خودرو: ${ad.brand} ${ad.model}';
+      if (ad.rooms != null) {
+        details += details.isNotEmpty ? ' | ' : '';
+        details += 'اتاق: ${ad.rooms}';
+      }
+      return details.isNotEmpty ? details : 'آگهی: ${ad.title}';
+    } else if (ad.adType == 'VEHICLE') {
+      String details = '';
+      if (ad.brand != null && ad.model != null) {
+        details += 'خودرو: ${ad.brand} ${ad.model}';
+      } else if (ad.brand != null) {
+        details += 'برند: ${ad.brand}';
+      } else if (ad.model != null) {
+        details += 'مدل: ${ad.model}';
+      }
       if (ad.mileage != null) {
-        details += ' | کارکرد: ${ad.mileage} کیلومتر';
+        details += details.isNotEmpty ? ' | ' : '';
+        details += 'کارکرد: ${ad.mileage} کیلومتر';
       }
-      return details;
+      return details.isNotEmpty ? details : 'آگهی: ${ad.title}';
+    } else if (['DIGITAL', 'HOME', 'PERSONAL', 'ENTERTAINMENT']
+        .contains(ad.adType)) {
+      String details = '';
+      if (ad.brand != null && ad.model != null) {
+        details += 'محصول: ${ad.brand} ${ad.model}';
+      } else if (ad.brand != null) {
+        details += 'برند: ${ad.brand}';
+      } else if (ad.model != null) {
+        details += 'مدل: ${ad.model}';
+      }
+      if (ad.itemCondition != null) {
+        details += details.isNotEmpty ? ' | ' : '';
+        details += 'وضعیت: ${ad.itemCondition == 'NEW' ? 'نو' : 'کارکرده'}';
+      }
+      return details.isNotEmpty ? details : 'آگهی: ${ad.title}';
+    } else if (ad.adType == 'SERVICES') {
+      String details = '';
+      if (ad.serviceType != null) {
+        details += 'خدمت: ${ad.serviceType}';
+      }
+      if (ad.serviceDuration != null) {
+        details += details.isNotEmpty ? ' | ' : '';
+        details += 'مدت: ${ad.serviceDuration}';
+      }
+      return details.isNotEmpty ? details : 'آگهی: ${ad.title}';
     }
-    return 'جزئیات: نامشخص';
+    return 'آگهی: ${ad.title}';
   }
 
   Widget _buildActionButton({

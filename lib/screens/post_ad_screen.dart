@@ -7,6 +7,7 @@ import '../providers/auth_provider.dart';
 import 'package:intl/intl.dart';
 import '../models/province.dart';
 import '../models/city.dart';
+import 'package:persian_number_utility/persian_number_utility.dart';
 
 class PostAdScreen extends StatefulWidget {
   const PostAdScreen({super.key});
@@ -47,6 +48,11 @@ class _PostAdScreenState extends State<PostAdScreen>
   String _chassisStatus = 'HEALTHY';
   String _bodyStatus = 'HEALTHY';
   String _itemCondition = 'NEW'; // Renamed from _condition
+
+  String _priceWords = '';
+  String _depositWords = '';
+  String _monthlyRentWords = '';
+  String _basePriceWords = '';
 
   List<File> _images = [];
   late AnimationController _animationController;
@@ -138,6 +144,19 @@ class _PostAdScreenState extends State<PostAdScreen>
           ..text = formatted
           ..selection = TextSelection.collapsed(offset: formatted.length);
       }
+
+      // Update words for each controller using persian_number_utility
+      setState(() {
+        if (controller == _priceController) {
+          _priceWords = NumberUtility.toWord(text, NumStrLanguage.Farsi);
+        } else if (controller == _depositController) {
+          _depositWords = NumberUtility.toWord(text, NumStrLanguage.Farsi);
+        } else if (controller == _monthlyRentController) {
+          _monthlyRentWords = NumberUtility.toWord(text, NumStrLanguage.Farsi);
+        } else if (controller == _basePriceController) {
+          _basePriceWords = NumberUtility.toWord(text, NumStrLanguage.Farsi);
+        }
+      });
     }
   }
 
@@ -355,38 +374,66 @@ class _PostAdScreenState extends State<PostAdScreen>
     TextInputType? keyboardType,
     String? Function(String?)? validator,
   }) {
-    return TextFormField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: Colors.red),
-        filled: true,
-        fillColor: Colors.grey[50],
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red, width: 1),
+    String words = '';
+    if (controller == _priceController) {
+      words = _priceWords;
+    } else if (controller == _depositController) {
+      words = _depositWords;
+    } else if (controller == _monthlyRentController) {
+      words = _monthlyRentWords;
+    } else if (controller == _basePriceController) {
+      words = _basePriceWords;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          controller: controller,
+          decoration: InputDecoration(
+            labelText: label,
+            prefixIcon: Icon(icon, color: Colors.red),
+            filled: true,
+            fillColor: Colors.grey[50],
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red, width: 1),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+                  BorderSide(color: Colors.red.withOpacity(0.5), width: 1),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.redAccent, width: 1),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+            ),
+            labelStyle: TextStyle(color: Colors.grey[600]),
+          ),
+          maxLines: maxLines,
+          keyboardType: keyboardType,
+          validator: validator,
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.red.withOpacity(0.5), width: 1),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red, width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.redAccent, width: 1),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.redAccent, width: 2),
-        ),
-        labelStyle: TextStyle(color: Colors.grey[600]),
-      ),
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      validator: validator,
+        if (words.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0, right: 12.0),
+            child: Text(
+              '($words تومان)',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12,
+              ),
+            ),
+          ),
+      ],
     );
   }
 
